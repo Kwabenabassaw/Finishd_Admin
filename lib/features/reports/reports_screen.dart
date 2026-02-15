@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
+import 'package:finishd_admin/core/mock_data.dart';
+import 'package:data_table_2/data_table_2.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -10,197 +10,203 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  final _supabase = Supabase.instance.client;
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _reports = [];
+  late List<Map<String, dynamic>> _reports;
 
   @override
   void initState() {
     super.initState();
-    _fetchReports();
-  }
-
-  Future<void> _fetchReports() async {
-    try {
-      final data = await _supabase
-          .from('creator_video_reports')
-          .select('*, video:video_id(*), reporter:reporter_id(username)')
-          .eq('status', 'pending')
-          .order('created_at', ascending: true);
-
-      if (mounted) {
-        setState(() {
-          _reports = List<Map<String, dynamic>>.from(data);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
-  }
-
-  Future<void> _handleReport(String id, String status, [String? notes]) async {
-    try {
-      final userId = _supabase.auth.currentUser!.id;
-
-      await _supabase
-          .from('creator_video_reports')
-          .update({
-            'status': status,
-            'reviewed_by': userId,
-            'reviewed_at': DateTime.now().toIso8601String(),
-            'review_notes': notes,
-          })
-          .eq('id', id);
-
-      // If status is 'resolved' (meaning content was indeed bad), we might want to take action on the video
-      if (status == 'resolved') {
-        // Find the video ID
-        final report = _reports.firstWhere((r) => r['id'] == id);
-        final videoId = report['video_id'];
-
-        // For now, let's just mark the video as 'moderated' or 'removed'
-        // Assuming there is a status column on creator_videos
-        await _supabase
-            .from('creator_videos')
-            .update({
-              'status': 'removed', // or 'moderated'
-            })
-            .eq('id', videoId);
-      }
-
-      await _fetchReports();
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Report $status')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error updating report: $e')));
-      }
-    }
-  }
-
-  void _showActionDialog(Map<String, dynamic> report) {
-    final notesController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Take Action'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Reason: ${report['reason']}'),
-            if (report['details'] != null) ...[
-              const SizedBox(height: 8),
-              Text('Details: ${report['details']}'),
-            ],
-            const SizedBox(height: 16),
-            const Text('Action Notes:'),
-            TextField(
-              controller: notesController,
-              decoration: const InputDecoration(
-                hintText: 'Enter internal notes...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleReport(report['id'], 'dismissed', notesController.text);
-            },
-            child: const Text('Dismiss Report'), // False alarm
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _handleReport(report['id'], 'resolved', notesController.text);
-            },
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove Content'), // Valid report
-          ),
-        ],
-      ),
-    );
+    // Use mutable copy
+    _reports = MockData.reports.map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_reports.isEmpty) {
-      return const Center(child: Text('No pending reports'));
-    }
-
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Video Reports',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 32),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _reports.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 16),
-              itemBuilder: (context, index) {
-                final report = _reports[index];
-                final reporter = report['reporter'] ?? {};
-                final video = report['video'] ?? {};
-                final date = DateTime.parse(report['created_at']);
-
-                return Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.video_library, size: 32),
-                    title: Text('Report on "${video['title'] ?? 'Video'}"'),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Reason: ${report['reason']}'),
-                        Text(
-                          'Reported by @${reporter['username'] ?? 'unknown'} on ${DateFormat.yMMMd().format(date)}',
-                        ),
-                      ],
-                    ),
-                    isThreeLine: true,
-                    trailing: FilledButton(
-                      onPressed: () => _showActionDialog(report),
-                      child: const Text('Take Action'),
-                    ),
-                    contentPadding: const EdgeInsets.all(16),
+          Row(
+            children: [
+              Text(
+                'Moderation Queue',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${_reports.where((r) => r['status'] == 'Pending').length} Pending',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // List of reports
+                Expanded(
+                  flex: 3,
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: DataTable2(
+                        columnSpacing: 12,
+                        horizontalMargin: 12,
+                        minWidth: 600,
+                        columns: const [
+                          DataColumn2(label: Text('Type'), size: ColumnSize.S),
+                          DataColumn(label: Text('Reason')),
+                          DataColumn(label: Text('Severity')),
+                          DataColumn(label: Text('Reported User')),
+                          DataColumn(label: Text('Date')),
+                          DataColumn(label: Text('Status')),
+                          DataColumn(label: Text('Actions')),
+                        ],
+                        rows: _reports.map((report) {
+                          return DataRow(
+                            cells: [
+                              DataCell(Text(report['type'])),
+                              DataCell(Text(report['reason'])),
+                              DataCell(_SeverityBadge(severity: report['severity'])),
+                              DataCell(Text(report['reported_user'])),
+                              DataCell(Text(report['date'].toString().split(' ')[0])),
+                              DataCell(Text(report['status'])),
+                              DataCell(
+                                IconButton(
+                                  icon: const Icon(Icons.arrow_forward),
+                                  onPressed: () {
+                                     _showReportDetails(context, report);
+                                  },
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _showReportDetails(BuildContext context, Map<String, dynamic> report) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${report['type']} Report: ${report['reason']}'),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DetailRow(label: 'Reported User', value: report['reported_user']),
+              _DetailRow(label: 'Reporter', value: report['reporter']),
+              _DetailRow(label: 'Date', value: report['date']),
+              const Divider(),
+              const Text('Content Preview:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(report['content'] ?? 'No content preview'),
+              ),
+              const SizedBox(height: 24),
+              const Text('AI Analysis:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Row(
+                children: [
+                  Chip(label: Text('Toxic (85%)'), backgroundColor: Colors.red),
+                  SizedBox(width: 8),
+                  Chip(label: Text('Hate Speech (92%)'), backgroundColor: Colors.red),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Ignore'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+               // Ban logic mock
+               setState(() {
+                 report['status'] = 'Resolved (Banned)';
+               });
+               Navigator.pop(context);
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User Banned & Content Removed')));
+            },
+            child: const Text('Ban User & Remove'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 120, child: Text(label, style: const TextStyle(color: Colors.grey))),
+          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
+  }
+}
+
+class _SeverityBadge extends StatelessWidget {
+  final String severity;
+  const _SeverityBadge({required this.severity});
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    switch (severity.toLowerCase()) {
+      case 'high':
+        color = Colors.red;
+        break;
+      case 'medium':
+        color = Colors.orange;
+        break;
+      case 'low':
+        color = Colors.yellow;
+        break;
+      default:
+        color = Colors.grey;
+    }
+    return Text(severity, style: TextStyle(color: color, fontWeight: FontWeight.bold));
   }
 }

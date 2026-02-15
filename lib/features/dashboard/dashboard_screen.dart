@@ -1,90 +1,133 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:finishd_admin/core/mock_data.dart';
+import 'package:finishd_admin/features/dashboard/widgets/stat_card.dart';
+import 'package:finishd_admin/features/dashboard/widgets/activity_chart.dart';
 import 'package:go_router/go_router.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  final _supabase = Supabase.instance.client;
-
-  bool _isLoading = true;
-  int _pendingApplications = 0;
-  int _pendingReports = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchStats();
-  }
-
-  Future<void> _fetchStats() async {
-    try {
-      final appsCount = await _supabase
-          .from('creator_applications')
-          .count(CountOption.exact)
-          .eq('status', 'pending');
-
-      final reportsCount = await _supabase
-          .from('creator_video_reports')
-          .count(CountOption.exact)
-          .eq('status', 'pending');
-
-      if (mounted) {
-        setState(() {
-          _pendingApplications = appsCount;
-          _pendingReports = reportsCount;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-      debugPrint('Error fetching stats: $e');
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final theme = Theme.of(context);
+    final isWide = MediaQuery.of(context).size.width > 900;
 
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Dashboard',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 32),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _StatCard(
-                title: 'Pending Applications',
-                count: _pendingApplications,
-                icon: Icons.assignment_ind,
-                color: Colors.blue,
-                onTap: () => context.go('/applications'),
+              Text(
+                'Dashboard',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(width: 24),
-              _StatCard(
+              FilledButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.download),
+                label: const Text('Export Report'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Alerts
+          _AlertBanner(
+            message: 'Unusual spike in reports detected (topic: "Copyright")',
+            onAction: () => context.go('/reports'),
+          ),
+          const SizedBox(height: 24),
+
+          // Stats Grid
+          GridView.count(
+            crossAxisCount: isWide ? 4 : 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 1.5,
+            children: [
+              StatCard(
+                title: 'Daily Active Users',
+                value: '12,450',
+                trend: '+12%',
+                icon: Icons.people,
+                color: Colors.blue,
+              ),
+              StatCard(
+                title: 'New Users Today',
+                value: '342',
+                trend: '+5%',
+                icon: Icons.person_add,
+                color: Colors.green,
+              ),
+              StatCard(
+                title: 'Videos Uploaded',
+                value: '1,205',
+                trend: '-2%',
+                isPositive: false,
+                icon: Icons.video_library,
+                color: Colors.purple,
+              ),
+              StatCard(
                 title: 'Pending Reports',
-                count: _pendingReports,
-                icon: Icons.report_problem,
+                value: '15',
+                trend: '+3',
+                isPositive: false, // More reports is usually bad
+                icon: Icons.report,
                 color: Colors.orange,
                 onTap: () => context.go('/reports'),
               ),
             ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // Charts
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth > 800) {
+                return SizedBox(
+                  height: 400, // Explicit height for Row children if needed, but Chart handles it
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: ActivityChart(
+                          title: 'User Growth (30 Days)',
+                          data: MockData.generateChartData(30, max: 50),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: ActivityChart(
+                          title: 'Feed Engagement',
+                          data: MockData.generateChartData(30, max: 100),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              } else {
+                return Column(
+                  children: [
+                     ActivityChart(
+                        title: 'User Growth (30 Days)',
+                        data: MockData.generateChartData(30, max: 50),
+                      ),
+                      const SizedBox(height: 24),
+                      ActivityChart(
+                        title: 'Feed Engagement',
+                        data: MockData.generateChartData(30, max: 100),
+                      ),
+                  ],
+                );
+              }
+            },
           ),
         ],
       ),
@@ -92,76 +135,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final int count;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
+class _AlertBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onAction;
 
-  const _StatCard({
-    required this.title,
-    required this.count,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
+  const _AlertBanner({required this.message, required this.onAction});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 300,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.black12),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber, color: theme.colorScheme.error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(icon, color: color),
-                  ),
-                  const Spacer(),
-                  Text(
-                    count.toString(),
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text('View all', style: TextStyle(color: color)),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward, size: 16, color: color),
-                ],
-              ),
-            ],
+          TextButton(
+            onPressed: onAction,
+            child: const Text('Investigate'),
           ),
-        ),
+        ],
       ),
     );
   }
