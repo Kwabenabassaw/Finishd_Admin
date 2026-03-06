@@ -20,6 +20,8 @@ import 'package:finishd_admin/features/analytics/analytics_screen.dart';
 import 'package:finishd_admin/features/ml/ml_screen.dart';
 import 'package:finishd_admin/features/deeplinks/deeplinks_screen.dart';
 import 'package:finishd_admin/features/settings/settings_screen.dart';
+import 'package:finishd_admin/core/supabase_service.dart'; // Added import
+import 'package:finishd_admin/core/admin_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,8 +32,14 @@ void main() async {
   );
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthService(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
+        Provider(create: (_) => SupabaseService()),
+        ProxyProvider<SupabaseService, AdminRepository>(
+          update: (_, service, __) => AdminRepository(service),
+        ),
+      ],
       child: const FinishdAdminApp(),
     ),
   );
@@ -80,7 +88,8 @@ class _FinishdAdminAppState extends State<FinishdAdminApp> {
 
             if (uri.startsWith('/users')) {
               index = 1;
-            } else if (uri.startsWith('/creators') || uri.startsWith('/applications')) {
+            } else if (uri.startsWith('/creators') ||
+                uri.startsWith('/applications')) {
               index = 2;
             } else if (uri.startsWith('/videos')) {
               index = 3;
@@ -115,8 +124,9 @@ class _FinishdAdminAppState extends State<FinishdAdminApp> {
               path: '/creators',
               builder: (context, state) => const CreatorsScreen(),
             ),
-             GoRoute(
-              path: '/applications', // Keep this route for now if needed or link it under creators
+            GoRoute(
+              path:
+                  '/applications', // Keep this route for now if needed or link it under creators
               builder: (context, state) => const ApplicationsScreen(),
             ),
             GoRoute(
@@ -139,10 +149,7 @@ class _FinishdAdminAppState extends State<FinishdAdminApp> {
               path: '/analytics',
               builder: (context, state) => const AnalyticsScreen(),
             ),
-            GoRoute(
-              path: '/ml',
-              builder: (context, state) => const MLScreen(),
-            ),
+            GoRoute(path: '/ml', builder: (context, state) => const MLScreen()),
             GoRoute(
               path: '/deeplinks',
               builder: (context, state) => const DeepLinksScreen(),

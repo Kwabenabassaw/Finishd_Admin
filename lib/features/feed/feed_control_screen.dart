@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:finishd_admin/core/admin_repository.dart';
 
 class FeedControlScreen extends StatefulWidget {
   const FeedControlScreen({super.key});
@@ -14,9 +16,82 @@ class _FeedControlScreenState extends State<FeedControlScreen> {
   double _friendWeight = 0.2;
   double _adFrequency = 0.1;
   bool _enableAIGeneration = true;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSettings();
+    });
+  }
+
+  Future<void> _loadSettings() async {
+    setState(() => _isLoading = true);
+    try {
+      final repository = context.read<AdminRepository>();
+      final settings = await repository.getSettings();
+      setState(() {
+        _trendingWeight = (settings['feed_trending_weight'] ?? 0.4) as double;
+        _personalizedWeight =
+            (settings['feed_personalized_weight'] ?? 0.4) as double;
+        _friendWeight = (settings['feed_friend_weight'] ?? 0.2) as double;
+        _adFrequency = (settings['ad_frequency'] ?? 0.1) as double;
+        _enableAIGeneration =
+            (settings['ai_recommendations_enabled'] ?? true) as bool;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        // Default values used if fetch fails (e.g. table empty)
+        debugPrint('Error loading settings: $e');
+      }
+    }
+  }
+
+  Future<void> _saveSettings() async {
+    setState(() => _isLoading = true);
+    try {
+      final repository = context.read<AdminRepository>();
+      await repository.updateSetting('feed_trending_weight', _trendingWeight);
+      await repository.updateSetting(
+        'feed_personalized_weight',
+        _personalizedWeight,
+      );
+      await repository.updateSetting('feed_friend_weight', _friendWeight);
+      await repository.updateSetting('ad_frequency', _adFrequency);
+      await repository.updateSetting(
+        'ai_recommendations_enabled',
+        _enableAIGeneration,
+      );
+
+      await repository.deployFeedChanges(); // Recompute rankings
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Algorithm parameters saved & deployed'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error saving settings: $e')));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Row(
@@ -31,7 +106,10 @@ class _FeedControlScreenState extends State<FeedControlScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Feed Algorithm Tuning', style: Theme.of(context).textTheme.headlineSmall),
+                    Text(
+                      'Feed Algorithm Tuning',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
                     const SizedBox(height: 24),
                     _SliderControl(
                       label: 'Trending Content Weight',
@@ -58,15 +136,15 @@ class _FeedControlScreenState extends State<FeedControlScreen> {
                     const SizedBox(height: 16),
                     SwitchListTile(
                       title: const Text('Enable AI Recommendations'),
-                      subtitle: const Text('Use vector embeddings for similarity matching'),
+                      subtitle: const Text(
+                        'Use vector embeddings for similarity matching',
+                      ),
                       value: _enableAIGeneration,
                       onChanged: (v) => setState(() => _enableAIGeneration = v),
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
-                      onPressed: () {
-                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Algorithm parameters updated')));
-                      },
+                      onPressed: _saveSettings,
                       child: const Text('Deploy Changes'),
                     ),
                   ],
@@ -75,7 +153,7 @@ class _FeedControlScreenState extends State<FeedControlScreen> {
             ),
           ),
           const SizedBox(width: 24),
-          // Simulation Preview
+          // Simulation Preview (Mock for now)
           Expanded(
             flex: 1,
             child: Card(
@@ -84,12 +162,17 @@ class _FeedControlScreenState extends State<FeedControlScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Live Simulation', style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      'Live Simulation (Preview)',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 16),
                     Container(
                       height: 500,
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: Colors.grey.withValues(alpha: 0.3),
+                        ),
                         borderRadius: BorderRadius.circular(12),
                         color: Colors.black,
                       ),
@@ -109,19 +192,37 @@ class _FeedControlScreenState extends State<FeedControlScreen> {
                                 Container(
                                   width: 80,
                                   color: Colors.grey[800],
-                                  child: const Icon(Icons.movie, color: Colors.grey),
+                                  child: const Icon(
+                                    Icons.movie,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text('Movie Title $index', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                                       Text(
-                                        index % 3 == 0 ? 'Trending' : (index % 2 == 0 ? 'For You' : 'Friend Liked'),
+                                        'Movie Title $index',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        index % 3 == 0
+                                            ? 'Trending'
+                                            : (index % 2 == 0
+                                                  ? 'For You'
+                                                  : 'Friend Liked'),
                                         style: TextStyle(
-                                          color: index % 3 == 0 ? Colors.blue : (index % 2 == 0 ? Colors.green : Colors.purple),
+                                          color: index % 3 == 0
+                                              ? Colors.blue
+                                              : (index % 2 == 0
+                                                    ? Colors.green
+                                                    : Colors.purple),
                                           fontSize: 10,
                                         ),
                                       ),
@@ -151,7 +252,12 @@ class _SliderControl extends StatelessWidget {
   final ValueChanged<double> onChanged;
   final Color? activeColor;
 
-  const _SliderControl({required this.label, required this.value, required this.onChanged, this.activeColor});
+  const _SliderControl({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.activeColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -162,14 +268,13 @@ class _SliderControl extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label),
-            Text('${(value * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              '${(value * 100).toInt()}%',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
-        Slider(
-          value: value,
-          onChanged: onChanged,
-          activeColor: activeColor,
-        ),
+        Slider(value: value, onChanged: onChanged, activeColor: activeColor),
         const SizedBox(height: 8),
       ],
     );

@@ -3,9 +3,24 @@ import 'package:finishd_admin/core/mock_data.dart';
 import 'package:finishd_admin/features/dashboard/widgets/stat_card.dart';
 import 'package:finishd_admin/features/dashboard/widgets/activity_chart.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:finishd_admin/core/admin_repository.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late Future<Map<String, dynamic>> _statsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _statsFuture = context.read<AdminRepository>().getDashboardStats();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,46 +58,63 @@ class DashboardScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Stats Grid
-          GridView.count(
-            crossAxisCount: isWide ? 4 : 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1.5,
-            children: [
-              StatCard(
-                title: 'Daily Active Users',
-                value: '12,450',
-                trend: '+12%',
-                icon: Icons.people,
-                color: Colors.blue,
-              ),
-              StatCard(
-                title: 'New Users Today',
-                value: '342',
-                trend: '+5%',
-                icon: Icons.person_add,
-                color: Colors.green,
-              ),
-              StatCard(
-                title: 'Videos Uploaded',
-                value: '1,205',
-                trend: '-2%',
-                isPositive: false,
-                icon: Icons.video_library,
-                color: Colors.purple,
-              ),
-              StatCard(
-                title: 'Pending Reports',
-                value: '15',
-                trend: '+3',
-                isPositive: false, // More reports is usually bad
-                icon: Icons.report,
-                color: Colors.orange,
-                onTap: () => context.go('/reports'),
-              ),
-            ],
+          FutureBuilder<Map<String, dynamic>>(
+            future: _statsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text('Error loading stats: ${snapshot.error}'),
+                );
+              }
+
+              final stats = snapshot.data ?? {};
+
+              return GridView.count(
+                crossAxisCount: isWide ? 4 : 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: 1.5,
+                children: [
+                  StatCard(
+                    title: 'Daily Active Users',
+                    value: (stats['daily_active_users'] ?? 0).toString(),
+                    trend: '+0%', // Trends require historical data comparison
+                    icon: Icons.people,
+                    color: Colors.blue,
+                  ),
+                  StatCard(
+                    title: 'New Users Today',
+                    value: (stats['new_users_today'] ?? 0).toString(),
+                    trend: '+0%',
+                    icon: Icons.person_add,
+                    color: Colors.green,
+                  ),
+                  StatCard(
+                    title: 'Videos Uploaded',
+                    value: (stats['videos_uploaded_today'] ?? 0).toString(),
+                    trend: '+0%',
+                    isPositive: false,
+                    icon: Icons.video_library,
+                    color: Colors.purple,
+                  ),
+                  StatCard(
+                    title: 'Pending Reports',
+                    value: (stats['pending_reports'] ?? 0).toString(),
+                    trend: '',
+                    isPositive: false,
+                    icon: Icons.report,
+                    color: Colors.orange,
+                    onTap: () => context.go('/reports'),
+                  ),
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 24),
@@ -92,7 +124,7 @@ class DashboardScreen extends StatelessWidget {
             builder: (context, constraints) {
               if (constraints.maxWidth > 800) {
                 return SizedBox(
-                  height: 400, // Explicit height for Row children if needed, but Chart handles it
+                  height: 400,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -115,15 +147,15 @@ class DashboardScreen extends StatelessWidget {
               } else {
                 return Column(
                   children: [
-                     ActivityChart(
-                        title: 'User Growth (30 Days)',
-                        data: MockData.generateChartData(30, max: 50),
-                      ),
-                      const SizedBox(height: 24),
-                      ActivityChart(
-                        title: 'Feed Engagement',
-                        data: MockData.generateChartData(30, max: 100),
-                      ),
+                    ActivityChart(
+                      title: 'User Growth (30 Days)',
+                      data: MockData.generateChartData(30, max: 50),
+                    ),
+                    const SizedBox(height: 24),
+                    ActivityChart(
+                      title: 'Feed Engagement',
+                      data: MockData.generateChartData(30, max: 100),
+                    ),
                   ],
                 );
               }
@@ -149,7 +181,9 @@ class _AlertBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.5)),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [
@@ -164,10 +198,7 @@ class _AlertBanner extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(
-            onPressed: onAction,
-            child: const Text('Investigate'),
-          ),
+          TextButton(onPressed: onAction, child: const Text('Investigate')),
         ],
       ),
     );
