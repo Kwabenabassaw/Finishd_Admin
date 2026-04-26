@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 import 'package:finishd_admin/layout/sidebar.dart';
 import 'package:finishd_admin/layout/top_bar.dart';
 
@@ -14,7 +15,7 @@ class AdminShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 1024; // Standard desktop break
+    final isDesktop = ResponsiveBreakpoints.of(context).largerThan(TABLET);
     final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
 
     return Scaffold(

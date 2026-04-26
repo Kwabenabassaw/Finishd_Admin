@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 import 'package:finishd_admin/core/mock_data.dart';
 import 'package:finishd_admin/features/dashboard/widgets/stat_card.dart';
 import 'package:finishd_admin/features/dashboard/widgets/activity_chart.dart';
@@ -25,7 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isWide = MediaQuery.of(context).size.width > 900;
+    final isWide = ResponsiveBreakpoints.of(context).largerThan(TABLET);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -37,14 +38,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 'Dashboard',
-                style: theme.textTheme.headlineMedium?.copyWith(
+                style: theme.textTheme.headlineLarge?.copyWith(
                   fontWeight: FontWeight.bold,
+                  letterSpacing: -1,
                 ),
               ),
               FilledButton.icon(
                 onPressed: () {},
-                icon: const Icon(Icons.download),
+                icon: const Icon(Icons.download_rounded, size: 18),
                 label: const Text('Export Report'),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
               ),
             ],
           ),
@@ -106,9 +113,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   StatCard(
                     title: 'Pending Reports',
                     value: (stats['pending_reports'] ?? 0).toString(),
-                    trend: '',
+                    trend: '+12%',
                     isPositive: false,
-                    icon: Icons.report,
+                    icon: Icons.flag_rounded,
                     color: Colors.orange,
                     onTap: () => context.go('/reports'),
                   ),
@@ -122,7 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Charts
           LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth > 800) {
+              if (ResponsiveBreakpoints.of(context).largerThan(TABLET)) {
                 return SizedBox(
                   height: 400,
                   child: Row(
@@ -147,14 +154,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
               } else {
                 return Column(
                   children: [
-                    ActivityChart(
-                      title: 'User Growth (30 Days)',
-                      data: MockData.generateChartData(30, max: 50),
+                    SizedBox(
+                      height: 400,
+                      child: ActivityChart(
+                        title: 'User Growth (30 Days)',
+                        data: MockData.generateChartData(30, max: 50),
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    ActivityChart(
-                      title: 'Feed Engagement',
-                      data: MockData.generateChartData(30, max: 100),
+                    SizedBox(
+                      height: 400,
+                      child: ActivityChart(
+                        title: 'Feed Engagement',
+                        data: MockData.generateChartData(30, max: 100),
+                      ),
                     ),
                   ],
                 );
@@ -181,14 +194,19 @@ class _AlertBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: theme.colorScheme.error.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: theme.colorScheme.error.withValues(alpha: 0.2), width: 1),
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber, color: theme.colorScheme.error),
-          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.error.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(Icons.warning_amber_rounded, size: 18, color: theme.colorScheme.error),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Text(
               message,
@@ -198,7 +216,14 @@ class _AlertBanner extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(onPressed: onAction, child: const Text('Investigate')),
+          TextButton(
+            onPressed: onAction, 
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            child: const Text('Investigate', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
         ],
       ),
     );

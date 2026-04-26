@@ -2,6 +2,8 @@ import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:finishd_admin/core/admin_repository.dart';
+import 'package:go_router/go_router.dart';
+import 'package:finishd_admin/features/communities/widgets/community_form_dialog.dart';
 
 class CommunitiesScreen extends StatefulWidget {
   const CommunitiesScreen({super.key});
@@ -82,7 +84,21 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
               const Spacer(),
               FilledButton.icon(
                 onPressed: () {
-                  // Add community logic
+                  showDialog(
+                    context: context,
+                    builder: (context) => CommunityFormDialog(
+                      onSubmit: (data) async {
+                        try {
+                          await context.read<AdminRepository>().createCommunity(data);
+                          _fetchCommunities();
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                          }
+                        }
+                      },
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('New Community'),
@@ -118,14 +134,14 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                         rows: _communities.map((c) {
                           final toxicity = (c['toxicity_score'] ?? 0) as num;
                           final isToxic = toxicity > 50;
-                          final status = c['status'] ?? 'Active';
-                          final isActive = status == 'Active';
+                          final status = c['status']?.toString() ?? 'active';
+                          final isActive = status.toLowerCase() == 'active';
 
                           return DataRow(
                             cells: [
                               DataCell(
                                 Text(
-                                  c['name'] ?? 'Untitled',
+                                  c['title'] ?? 'Untitled',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -178,14 +194,57 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                                 ),
                               ),
                               DataCell(
-                                Switch(
-                                  value: isActive,
-                                  onChanged: (val) {
-                                    _updateStatus(
-                                      c['id'],
-                                      val ? 'Active' : 'Inactive',
-                                    );
-                                  },
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Switch(
+                                      value: isActive,
+                                      onChanged: (val) {
+                                        _updateStatus(
+                                          c['id'].toString(), // ensure string format
+                                          val ? 'active' : 'suspended',
+                                        );
+                                      },
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Edit',
+                                      icon: const Icon(Icons.edit, size: 20),
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => CommunityFormDialog(
+                                            initialData: c,
+                                            onSubmit: (data) async {
+                                              try {
+                                                await context.read<AdminRepository>().updateCommunity(c['id'].toString(), data);
+                                                _fetchCommunities();
+                                              } catch (e) {
+                                                if (context.mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                                                }
+                                              }
+                                            },
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.people, size: 18),
+                                      label: const Text('Members'),
+                                      onPressed: () {
+                                        context.go('/communities/${c['id']}/members');
+                                      },
+                                    ),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.list, size: 18),
+                                      label: const Text('Posts'),
+                                      onPressed: () {
+                                        context.go('/communities/${c['id']}/posts');
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

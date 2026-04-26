@@ -84,9 +84,9 @@ class SupabaseService {
   Future<List<Map<String, dynamic>>> getFlaggedVideos() async {
     return await _client
         .from('creator_videos')
-        .select('*, profiles:creator_id(username)')
-        .eq('status', 'pending')
-        .order('created_at', ascending: true);
+        .select('*, profiles:creator_videos_creator_id_fkey(username, avatar_url)')
+        .gt('report_count', 0)            // FIX: was filtering pending again — should be reported
+        .order('report_count', ascending: false);
   }
 
   Future<List<Map<String, dynamic>>> getCommunities() async {
@@ -105,7 +105,45 @@ class SupabaseService {
   }
 
   Future<void> updateReportStatus(String reportId, String status) async {
-    await _client.from('reports').update({'status': status}).eq('id', reportId);
+    await _client.from('reports').update({'status': status.toLowerCase()}).eq('id', reportId);
+  }
+
+  Future<void> resolveReport(
+    String reportId,
+    String action,
+    String notes,
+  ) async {
+    await _client.from('reports').update({
+      'status': action.toLowerCase(),
+      'resolution_notes': notes,
+      'resolved_at': DateTime.now().toIso8601String(),
+    }).eq('id', reportId);
+  }
+
+  Future<List<Map<String, dynamic>>> getDeletionSubmissions() async {
+    return await _client
+        .from('deletion_submissions')
+        .select('*')
+        .order('created_at', ascending: false);
+  }
+
+  Future<List<Map<String, dynamic>>> getAuditLogs({int limit = 50}) async {
+    return await _client
+        .from('audit_log_view')
+        .select('*')
+        .limit(limit);
+  }
+
+  Future<void> broadcastAnnouncement({
+    required String title,
+    required String body,
+    String type = 'announcement',
+  }) async {
+    await _client.functions.invoke('broadcast-announcement', body: {
+      'title': title,
+      'body': body,
+      'type': type,
+    });
   }
 
   Future<Map<String, dynamic>> getAdminSettings() async {
@@ -132,10 +170,11 @@ class SupabaseService {
         .update({'is_banned': true, 'ban_reason': reason})
         .eq('id', userId);
 
+    // FIX: target_id is UUID in the new schema — must be passed as a valid column value
     await _client.from('moderation_actions').insert({
       'actor_id': _client.auth.currentUser?.id,
       'target_type': 'user',
-      'target_id': userId,
+      'target_id': userId,   // UUID string — Supabase client handles the cast
       'action': 'ban',
       'reason': reason,
     });
@@ -168,29 +207,60 @@ class SupabaseService {
         .update({'is_banned': false, 'ban_reason': null})
         .eq('id', userId);
 
+    // FIX: persist the unban action in moderation_actions
     await _client.from('moderation_actions').insert({
       'actor_id': _client.auth.currentUser?.id,
       'target_type': 'user',
-      'target_id': userId,
+      'target_id': userId,   // UUID string — Supabase client handles the cast
       'action': 'unban',
     });
   }
 
-  Future<void> freezeCommunity(String communityId, String reason) async {
+  Future<void> updateUserStatus(String userId, String action, bool value) async {
+    final Map<String, dynamic> updateData = {};
+    if (action == 'suspend') {
+      updateData['is_suspended'] = value;
+      if (value) {
+        updateData['suspension_end_timestamp'] = DateTime.now().add(const Duration(days: 7)).toIso8601String();
+        updateData['suspension_reason'] = 'Admin action';
+      } else {
+        updateData['suspension_end_timestamp'] = null;
+        updateData['suspension_reason'] = null;
+      }
+    } else if (action == 'shadowban') {
+      updateData['is_shadowbanned'] = value;
+    }
+
+    await _client.from('profiles').update(updateData).eq('id', userId);
+
+    await _client.from('moderation_actions').insert({
+      'actor_id': _client.auth.currentUser?.id,
+      'target_type': 'user',
+      'target_id': userId,
+      'action': action,
+      'reason': 'Admin action: ${value ? 'applied' : 'removed'}',
+    });
+  }
+
+  Future<void> freezeCommunity(int communityId, String reason) async {
     await _client.rpc(
       'freeze_community',
-      params: {'p_community_id': int.parse(communityId), 'p_reason': reason},
+      params: {'p_community_id': communityId, 'p_reason': reason},
     );
   }
 
-  Future<void> resolveReport(
-    String reportId,
-    String action,
-    String notes,
-  ) async {
-    await _client.rpc(
-      'resolve_report',
-      params: {'p_report_id': reportId, 'p_action': action, 'p_notes': notes},
-    );
+  Future<void> deleteUser(String userId) async {
+    await _client.functions.invoke('delete-account', body: {
+      'target_user_id': userId,
+    });
+
+    // Optionally log this in moderation_actions
+    await _client.from('moderation_actions').insert({
+      'actor_id': _client.auth.currentUser?.id,
+      'target_type': 'user',
+      'target_id': userId,
+      'action': 'delete',
+      'reason': 'Admin deleted user account entirely',
+    });
   }
 }

@@ -74,6 +74,78 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
+  Future<void> _suspendUser(String userId, bool isCurrentlySuspended) async {
+    try {
+      final repository = context.read<AdminRepository>();
+      await repository.updateUserStatus(userId, 'suspend', !isCurrentlySuspended);
+      await _fetchUsers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isCurrentlySuspended ? 'User unsuspended' : 'User suspended for 7 days')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _shadowbanUser(String userId, bool isCurrentlyShadowbanned) async {
+    try {
+      final repository = context.read<AdminRepository>();
+      await repository.updateUserStatus(userId, 'shadowban', !isCurrentlyShadowbanned);
+      await _fetchUsers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isCurrentlyShadowbanned ? 'Shadowban removed' : 'User shadowbanned')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  Future<void> _deleteUser(String userId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete User'),
+        content: const Text('Are you sure you want to permanently delete this user? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final repository = context.read<AdminRepository>();
+      await repository.deleteUser(userId);
+      await _fetchUsers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User account permanently deleted')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -92,21 +164,44 @@ class _UsersScreenState extends State<UsersScreen> {
                 ),
               ),
               const Spacer(),
-              // Search Bar
+              // Search Bar (Shadcn style)
               SizedBox(
                 width: 300,
-                child: TextField(
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
-                    hintText: 'Search users...',
+                child: SizedBox(
+                  height: 36,
+                  child: TextField(
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Search users...',
+                      hintStyle: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        size: 16,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+                      filled: true,
+                      fillColor: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+                      ),
+                    ),
+                    onSubmitted: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                        _currentPage = 1;
+                      });
+                      _fetchUsers();
+                    },
                   ),
-                  onSubmitted: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                      _currentPage = 1;
-                    });
-                    _fetchUsers();
-                  },
                 ),
               ),
               const SizedBox(width: 16),
@@ -114,45 +209,72 @@ class _UsersScreenState extends State<UsersScreen> {
                 onPressed: () {
                   // Placeholder for add user
                 },
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add User'),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 24),
           Expanded(
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : Column(
-                        children: [
-                          Expanded(
-                            child: DataTable2(
-                              columnSpacing: 12,
-                              horizontalMargin: 12,
-                              minWidth: 800,
-                              columns: const [
-                                DataColumn2(
-                                  label: Text('User'),
-                                  size: ColumnSize.L,
-                                ),
-                                DataColumn(label: Text('Role')),
-                                DataColumn(label: Text('Status')),
-                                DataColumn(label: Text('Reports')),
-                                DataColumn(label: Text('Joined')),
-                                DataColumn(label: Text('Actions')),
-                              ],
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: theme.dividerColor, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ],
+              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: DataTable2(
+                            columnSpacing: 16,
+                            horizontalMargin: 24,
+                            minWidth: 800,
+                            headingRowHeight: 48,
+                            dataRowHeight: 56,
+                            headingRowColor: WidgetStatePropertyAll(
+                              theme.colorScheme.onSurface.withValues(alpha: 0.02)
+                            ),
+                            headingTextStyle: theme.textTheme.labelMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            columns: const [
+                              DataColumn2(
+                                label: Text('User'),
+                                size: ColumnSize.L,
+                              ),
+                              DataColumn(label: Text('Role')),
+                              DataColumn(label: Text('Status')),
+                              DataColumn(label: Text('Reports')),
+                              DataColumn(label: Text('Joined')),
+                              DataColumn(label: Text(''), numeric: true), // Actions
+                            ],
                               rows: _users.map((user) {
                                 final isBanned =
                                     user['status'] == 'Banned' ||
                                     user['is_banned'] == true;
+                                final isSuspended = user['status'] == 'Suspended';
+                                final isShadowbanned = user['status'] == 'Shadowbanned';
 
                                 // Normalize status string
                                 String status = user['status'] ?? 'Active';
-                                if (user['is_banned'] == true)
+                                if (user['is_banned'] == true) {
                                   status = 'Banned';
+                                }
 
                                 return DataRow(
                                   onSelectChanged: (selected) {
@@ -166,16 +288,17 @@ class _UsersScreenState extends State<UsersScreen> {
                                         children: [
                                           CircleAvatar(
                                             backgroundImage:
-                                                user['avatar_url'] != null
+                                                user['avatar_url'] != null && user['avatar_url'].toString().isNotEmpty
                                                 ? NetworkImage(
-                                                    user['avatar_url'],
+                                                    user['avatar_url'].toString(),
                                                   )
                                                 : null,
                                             radius: 16,
-                                            child: user['avatar_url'] == null
+                                            child: (user['avatar_url'] == null || user['avatar_url'].toString().isEmpty)
                                                 ? Text(
-                                                    (user['username'] ?? 'U')[0]
-                                                        .toUpperCase(),
+                                                    (user['username']?.toString().isNotEmpty == true)
+                                                        ? user['username'].toString()[0].toUpperCase()
+                                                        : 'U',
                                                   )
                                                 : null,
                                           ),
@@ -217,23 +340,53 @@ class _UsersScreenState extends State<UsersScreen> {
                                     ),
                                     DataCell(
                                       PopupMenuButton(
-                                        icon: const Icon(Icons.more_vert),
+                                        icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                                        splashRadius: 20,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         itemBuilder: (context) => [
                                           PopupMenuItem(
                                             value: 'ban',
                                             child: Text(
-                                              isBanned ? 'Unban' : 'Ban',
+                                              isBanned ? 'Unban User' : 'Ban User',
                                               style: TextStyle(
                                                 color: isBanned
-                                                    ? Colors.green
-                                                    : Colors.red,
+                                                    ? Colors.green.shade600
+                                                    : Colors.red.shade600,
+                                                fontWeight: FontWeight.w500,
                                               ),
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'suspend',
+                                            child: Text(
+                                              isSuspended ? 'Unsuspend User' : 'Suspend User (7 Days)',
+                                              style: TextStyle(color: isSuspended ? Colors.green.shade600 : Colors.orange.shade700),
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'shadowban',
+                                            child: Text(
+                                              isShadowbanned ? 'Remove Shadowban' : 'Shadowban User',
+                                              style: TextStyle(color: isShadowbanned ? Colors.green.shade600 : Colors.blueGrey),
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'delete',
+                                            child: Text(
+                                              'Delete User',
+                                              style: TextStyle(color: Colors.red.shade900),
                                             ),
                                           ),
                                         ],
                                         onSelected: (value) {
                                           if (value == 'ban') {
                                             _banUser(user['id'], isBanned);
+                                          } else if (value == 'suspend') {
+                                            _suspendUser(user['id'], isSuspended);
+                                          } else if (value == 'shadowban') {
+                                            _shadowbanUser(user['id'], isShadowbanned);
+                                          } else if (value == 'delete') {
+                                            _deleteUser(user['id']);
                                           }
                                         },
                                       ),
@@ -244,35 +397,58 @@ class _UsersScreenState extends State<UsersScreen> {
                             ),
                           ),
                           // Simple Pagination Controls
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.chevron_left),
-                                onPressed: _currentPage > 1
-                                    ? () {
-                                        setState(() => _currentPage--);
-                                        _fetchUsers();
-                                      }
-                                    : null,
-                              ),
-                              Text('Page $_currentPage'),
-                              IconButton(
-                                icon: const Icon(Icons.chevron_right),
-                                onPressed: _users.length == _pageSize
-                                    ? () {
-                                        setState(() => _currentPage++);
-                                        _fetchUsers();
-                                      }
-                                    : null,
-                              ),
-                            ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border(top: BorderSide(color: theme.dividerColor, width: 1)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Showing page $_currentPage',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: _currentPage > 1
+                                          ? () {
+                                              setState(() => _currentPage--);
+                                              _fetchUsers();
+                                            }
+                                          : null,
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                      ),
+                                      child: const Text('Previous'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    OutlinedButton(
+                                      onPressed: _users.length == _pageSize
+                                          ? () {
+                                              setState(() => _currentPage++);
+                                              _fetchUsers();
+                                            }
+                                          : null,
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                      ),
+                                      child: const Text('Next'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -364,12 +540,14 @@ class _UserDetailSheet extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 40,
-                      backgroundImage: user['avatar_url'] != null
-                          ? NetworkImage(user['avatar_url'])
+                      backgroundImage: user['avatar_url'] != null && user['avatar_url'].toString().isNotEmpty
+                          ? NetworkImage(user['avatar_url'].toString())
                           : null,
-                      child: user['avatar_url'] == null
+                      child: (user['avatar_url'] == null || user['avatar_url'].toString().isEmpty)
                           ? Text(
-                              (user['username'] ?? 'U')[0].toUpperCase(),
+                              (user['username']?.toString().isNotEmpty == true)
+                                  ? user['username'].toString()[0].toUpperCase()
+                                  : 'U',
                               style: const TextStyle(fontSize: 24),
                             )
                           : null,
