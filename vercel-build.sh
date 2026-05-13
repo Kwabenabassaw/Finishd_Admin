@@ -1,21 +1,37 @@
 #!/bin/bash
 
-# Install Flutter
-if [ ! -d "flutter" ]; then
-  echo "Cloning Flutter..."
-  git clone --depth 1 https://github.com/flutter/flutter.git -b stable
-fi
+# Exit on any error
+set -e
 
 # Add Flutter to PATH
-export PATH="$PATH:`pwd`/flutter/bin"
+export PATH="$PATH:$(pwd)/flutter/bin"
 
-# Enable Web
+echo "--- Build Environment Check ---"
+echo "Directory: $(pwd)"
+
+# 1. Install Flutter
+if [ ! -d "flutter" ]; then
+  echo "--- Cloning Flutter SDK ---"
+  git clone --depth 1 https://github.com/flutter/flutter.git -b stable
+else
+  echo "--- Flutter SDK already exists ---"
+fi
+
+# 2. Setup Flutter
+echo "--- Configuring Flutter ---"
+flutter config --no-analytics
 flutter config --enable-web
 
-# Build for Web
-echo "Building Flutter Web..."
+# 3. Download Artifacts
+echo "--- Downloading Web Artifacts ---"
+flutter precache --web
+
+# 4. Get Packages
+echo "--- Running pub get ---"
+flutter pub get
+
+# 5. Build
+echo "--- Starting Flutter Build Web ---"
 flutter build web --release --base-href /
 
-# Move output to the root of the build directory if needed
-# Vercel expects files in the directory specified as 'Output Directory'
-# If we set Output Directory to 'build/web' in Vercel settings, we don't need to move anything.
+echo "--- Build Finished Successfully ---"
