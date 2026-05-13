@@ -127,9 +127,13 @@ class _ApplicationsScreenState extends State<ApplicationsScreen> {
                               : null,
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          app['username'] ?? 'Unknown',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            app['username'] ?? 'Unknown',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                       ],
                     ),

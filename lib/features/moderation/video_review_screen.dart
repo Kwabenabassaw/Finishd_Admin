@@ -165,16 +165,64 @@ class _VideoReviewScreenState extends State<VideoReviewScreen> {
                                 ),
                               ),
 
-                            Center(
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.play_circle_fill,
-                                  size: 48,
-                                  color: Colors.white,
-                                ),
-                                onPressed: () => _playVideo(video['video_url']),
-                              ),
-                            ),
+                            // ── Determine playable URL ────────────────────
+                            Builder(builder: (context) {
+                              final muxId = video['mux_playback_id']?.toString() ?? '';
+                              final rawUrl = video['video_url']?.toString() ?? '';
+                              final String resolvedUrl = muxId.isNotEmpty
+                                  ? 'https://stream.mux.com/$muxId.m3u8'
+                                  : rawUrl;
+                              final bool isPlayable = resolvedUrl.isNotEmpty;
+
+                              return Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Play button (only shown when video is ready)
+                                  if (isPlayable)
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.play_circle_fill,
+                                        size: 48,
+                                        color: Colors.white,
+                                      ),
+                                      onPressed: () => _playVideo(resolvedUrl),
+                                    )
+                                  else
+                                    // Processing badge when no playable URL yet
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.7),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            'Processing…',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              );
+                            }),
                           ],
                         ),
                       ),
@@ -195,7 +243,32 @@ class _VideoReviewScreenState extends State<VideoReviewScreen> {
                               'by ${profile['username'] ?? 'Unknown'}',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 4),
+                            // Mux status chip
+                            Builder(builder: (context) {
+                              final muxStatus = video['mux_status']?.toString() ?? 'unknown';
+                              final Color chipColor = switch (muxStatus) {
+                                'ready'      => Colors.green,
+                                'errored'    => Colors.red,
+                                'processing' => Colors.orange,
+                                _            => Colors.grey,
+                              };
+                              return Chip(
+                                label: Text(
+                                  'Mux: $muxStatus',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                backgroundColor: chipColor,
+                                padding: EdgeInsets.zero,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              );
+                            }),
+                            const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
@@ -251,20 +324,46 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
     _initializePlayer();
   }
 
+  String? _errorMessage;
+
   Future<void> _initializePlayer() async {
-    _videoPlayerController = VideoPlayerController.networkUrl(
-      Uri.parse(widget.videoUrl),
-    );
-    await _videoPlayerController.initialize();
+    debugPrint('Attempting to play video URL: ${widget.videoUrl}');
+    if (widget.videoUrl.isEmpty) {
+      setState(() => _errorMessage = 'Video URL is empty');
+      return;
+    }
 
-    _chewieController = ChewieController(
-      videoPlayerController: _videoPlayerController,
-      autoPlay: true,
-      looping: false,
-      aspectRatio: _videoPlayerController.value.aspectRatio,
-    );
+    try {
+      _videoPlayerController = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        formatHint: widget.videoUrl.contains('.m3u8') ? VideoFormat.hls : VideoFormat.other,
+      );
+      await _videoPlayerController.initialize();
 
-    if (mounted) setState(() {});
+      _chewieController = ChewieController(
+        videoPlayerController: _videoPlayerController,
+        autoPlay: true,
+        looping: false,
+        aspectRatio: _videoPlayerController.value.aspectRatio,
+        errorBuilder: (context, errorMessage) {
+          return Center(
+            child: Text(
+              errorMessage,
+              style: const TextStyle(color: Colors.white),
+            ),
+          );
+        },
+      );
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Error initializing video player: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load video: $e';
+        });
+      }
+    }
   }
 
   @override
@@ -281,11 +380,21 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
         width: 800,
         height: 600,
         color: Colors.black,
-        child:
-            _chewieController != null &&
-                _videoPlayerController.value.isInitialized
-            ? Chewie(controller: _chewieController!)
-            : const Center(child: CircularProgressIndicator()),
+        child: _errorMessage != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            : _chewieController != null &&
+                    _videoPlayerController.value.isInitialized
+                ? Chewie(controller: _chewieController!)
+                : const Center(child: CircularProgressIndicator()),
       ),
     );
   }

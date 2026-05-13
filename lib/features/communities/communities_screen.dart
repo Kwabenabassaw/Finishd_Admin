@@ -156,8 +156,7 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                               DataCell(
                                 Row(
                                   children: [
-                                    SizedBox(
-                                      width: 100,
+                                    Expanded(
                                       child: LinearProgressIndicator(
                                         value: toxicity / 100,
                                         color: isToxic

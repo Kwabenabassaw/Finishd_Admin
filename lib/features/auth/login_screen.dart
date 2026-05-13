@@ -65,7 +65,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.shield_rounded, color: Colors.white, size: 28),
+                        Image.asset('assets/app_icon.png', height: 40),
                         const SizedBox(width: 12),
                         Text(
                           'Finishd Admin',
@@ -76,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             letterSpacing: -0.5,
                           ),
                         ),
+                        
                       ],
                     ),
                     const Text(

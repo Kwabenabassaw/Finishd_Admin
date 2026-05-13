@@ -1,0 +1,9 @@
+{
+  "name": "finishd-admin",
+  "version": "1.0.0",
+  "description": "Flutter Web Admin for Finishd",
+  "scripts": {
+    "build": "bash ./vercel-build.sh"
+  },
+  "dependencies": {}
+}

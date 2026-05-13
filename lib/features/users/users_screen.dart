@@ -303,24 +303,30 @@ class _UsersScreenState extends State<UsersScreen> {
                                                 : null,
                                           ),
                                           const SizedBox(width: 12),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                user['username'] ?? 'Unknown',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  user['username'] ?? 'Unknown',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                  maxLines: 1,
                                                 ),
-                                              ),
-                                              Text(
-                                                user['email'] ?? 'No Email',
-                                                style:
-                                                    theme.textTheme.bodySmall,
-                                              ),
-                                            ],
+                                                Text(
+                                                  user['email'] ?? 'No Email',
+                                                  style:
+                                                      theme.textTheme.bodySmall,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  maxLines: 1,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),

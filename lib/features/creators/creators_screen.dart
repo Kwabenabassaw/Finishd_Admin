@@ -136,9 +136,13 @@ class _CreatorListState extends State<_CreatorList> {
                               : null,
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          creator['username'] ?? 'Unknown',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            creator['username'] ?? 'Unknown',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ),
                       ],
                     ),

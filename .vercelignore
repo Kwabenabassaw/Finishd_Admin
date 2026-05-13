@@ -1,0 +1,12 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+.packages
+ios/
+android/
+macos/
+linux/
+windows/
+flutter/
+# Keep build/, lib/, web/, pubspec.yaml for the build process

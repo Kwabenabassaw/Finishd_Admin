@@ -39,21 +39,48 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       final userStats = results[0];
       final videoStats = results[1];
 
-      // Process data for charts
-      // Note: If data is missing for some days, this simple mapping might alignment issues.
-      // ideally we fill gaps. For now, we map available data.
+      // userStats contains per-user rows: { user_id, date, videos_watched, ... }
+      // Group by date and count unique users to get 'active_users'
+      final Map<String, Set<String>> activeUsersByDate = {};
+      for (final row in userStats) {
+        final date = row['date'] as String;
+        final userId = row['user_id'] as String;
+        activeUsersByDate.putIfAbsent(date, () => {}).add(userId);
+      }
 
-      // Retention: map 'active_users' or similar.
-      // If column doesn't exist, we fallback to 0 or mock for now as schema is potentially new.
-      // Assuming 'active_users' exists in user_daily_stats
-      _userRetentionData = userStats
-          .map((e) => (e['active_users'] as num? ?? 0).toInt())
-          .toList();
+      // videoStats contains per-video rows: { video_id, date, total_views, sum_completion_pct }
+      // Group by date and compute average completion percentage
+      final Map<String, double> completionSumByDate = {};
+      final Map<String, int> completionCountByDate = {};
+      for (final row in videoStats) {
+        final date = row['date'] as String;
+        final sumCompletion = (row['sum_completion_pct'] as num? ?? 0).toDouble();
+        final views = (row['total_views'] as num? ?? 0).toInt();
+        
+        if (views > 0) {
+          completionSumByDate[date] = (completionSumByDate[date] ?? 0) + sumCompletion;
+          completionCountByDate[date] = (completionCountByDate[date] ?? 0) + views;
+        }
+      }
 
-      // Video Completion: 'avg_completion_rate' or similar
-      _videoCompletionData = videoStats
-          .map((e) => (e['avg_completion_pct'] as num? ?? 0).toInt())
-          .toList();
+      // Generate the last `_days` dates to ensure contiguous data
+      final now = DateTime.now();
+      _userRetentionData = [];
+      _videoCompletionData = [];
+      
+      for (int i = _days - 1; i >= 0; i--) {
+        final d = now.subtract(Duration(days: i));
+        // Format as YYYY-MM-DD
+        final dateStr = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        
+        // Active Users
+        _userRetentionData.add(activeUsersByDate[dateStr]?.length ?? 0);
+        
+        // Avg Completion
+        final sum = completionSumByDate[dateStr] ?? 0;
+        final count = completionCountByDate[dateStr] ?? 0;
+        _videoCompletionData.add(count > 0 ? (sum / count).toInt() : 0);
+      }
 
       // Mocking others as they likely require computed columns not yet in simple daily stats
       _scrollDepthData = List.generate(_days, (i) => 500 + (i * 10) % 200);
