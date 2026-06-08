@@ -166,9 +166,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   void _showReportDetails(BuildContext context, Map<String, dynamic> report) {
     final reportedUser = report['reported_user'] ?? {};
     final reportedUserId = report['reported_user_id'];
-    final reportId = report['id'] as String?;
+    final reportId = report['id']?.toString();
     final targetType = (report['target_type'] ?? 'unknown') as String;
-    final targetId = (report['target_id'] ?? '-') as String;
+    final targetId = (report['target_id']?.toString() ?? report['target_id_int']?.toString() ?? '-');
     final reason = (report['reason'] ?? '-') as String;
     final status = (report['status'] ?? 'pending') as String;
     final additionalInfo = report['additional_info'];
