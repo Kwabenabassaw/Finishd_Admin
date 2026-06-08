@@ -98,14 +98,21 @@ class SupabaseService {
   }
 
   Future<List<Map<String, dynamic>>> getReports() async {
-    return await _client
-        .from('reports')
-        .select('*, reported_user:reported_user_id(username)')
-        .order('created_at', ascending: false);
+    final response = await _client.functions.invoke('admin-view-reports');
+    if (response.status >= 400) {
+      throw Exception(response.data['error'] ?? 'Failed to fetch reports from Edge Function');
+    }
+    final List<dynamic> reports = response.data['reports'] ?? [];
+    return List<Map<String, dynamic>>.from(reports);
   }
 
   Future<void> updateReportStatus(String reportId, String status) async {
-    await _client.from('reports').update({'status': status.toLowerCase()}).eq('id', reportId);
+    final mappedAction = status.toLowerCase().contains('dismiss') ? 'dismiss' : 'resolve';
+    await _client.functions.invoke('admin-view-reports', body: {
+      'reportId': reportId,
+      'action': mappedAction,
+      'notes': 'Status updated to $status',
+    });
   }
 
   Future<void> resolveReport(
@@ -113,11 +120,15 @@ class SupabaseService {
     String action,
     String notes,
   ) async {
-    await _client.from('reports').update({
-      'status': action.toLowerCase(),
-      'resolution_notes': notes,
-      'resolved_at': DateTime.now().toIso8601String(),
-    }).eq('id', reportId);
+    final mappedAction = action.toLowerCase() == 'dismissed' ? 'dismiss' : 'resolve';
+    final response = await _client.functions.invoke('admin-view-reports', body: {
+      'reportId': reportId,
+      'action': mappedAction,
+      'notes': notes,
+    });
+    if (response.status >= 400) {
+      throw Exception(response.data['error'] ?? 'Failed to resolve report');
+    }
   }
 
   Future<List<Map<String, dynamic>>> getDeletionSubmissions() async {

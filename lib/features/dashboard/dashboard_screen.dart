@@ -81,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final stats = snapshot.data ?? {};
 
               return GridView.count(
-                crossAxisCount: isWide ? 4 : 2,
+                crossAxisCount: isWide ? 5 : 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 shrinkWrap: true,
@@ -109,6 +109,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     isPositive: false,
                     icon: Icons.video_library,
                     color: Colors.purple,
+                  ),
+                  StatCard(
+                    title: 'User Blocks',
+                    value: (stats['total_blocks'] ?? 0).toString(),
+                    trend: '+0%',
+                    isPositive: true,
+                    icon: Icons.block_flipped,
+                    color: Colors.red,
+                    onTap: () => context.go('/reports'),
                   ),
                   StatCard(
                     title: 'Pending Reports',
