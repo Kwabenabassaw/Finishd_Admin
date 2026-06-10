@@ -48,7 +48,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final repo = context.read<AdminRepository>();
     try {
       await repo.banUser(userId, reason);
-      await repo.resolveReport(reportId, 'Resolved', 'User banned: $reason');
+      await repo.resolveReport(reportId, 'resolved', 'User banned: $reason');
       await _fetchReports();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -63,10 +63,155 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
   }
 
+  Future<void> _warnUser(String userId, String reason, String reportId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.warnUser(userId, reason);
+      await repo.resolveReport(reportId, 'resolved', 'User warned: $reason');
+      await _fetchReports();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User warned')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _suspendUser(String userId, String reason, int durationHours, String reportId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.suspendUser(userId, reason, durationHours);
+      await repo.resolveReport(reportId, 'resolved', 'User suspended for $durationHours hours: $reason');
+      await _fetchReports();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User suspended')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _deleteContent(String targetType, String targetId, String reason, String reportId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.deleteContent(targetType, targetId, reason);
+      await repo.resolveReport(reportId, 'resolved', 'Content deleted');
+      await _fetchReports();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Content deleted')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _hideContent(String targetType, String targetId, String reportId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.hideContent(targetType, targetId, true);
+      await repo.resolveReport(reportId, 'resolved', 'Content hidden');
+      await _fetchReports();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Content hidden')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _flagReporter(String reporterId, String reason) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.flagReporter(reporterId, reason, 24);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reporter flagged for 24h')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _viewContext(BuildContext context, String targetType, String targetId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      final contextData = await repo.getContentContext(targetType, targetId);
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Content Context'),
+            content: SingleChildScrollView(
+              child: Text(contextData.toString()),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error fetching context: $e')));
+    }
+  }
+
+  void _promptWarnUser(String userId, String reportId) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Warn User'),
+        content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'Reason')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _warnUser(userId, ctrl.text, reportId);
+            },
+            child: const Text('Warn'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptDeleteContent(String targetType, String targetId, String reportId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Content?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteContent(targetType, targetId, 'Admin deletion', reportId);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _promptSuspendUser(String userId, String reportId) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Suspend User (24h)'),
+        content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'Reason')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _suspendUser(userId, ctrl.text, 24, reportId);
+            },
+            child: const Text('Suspend'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     int pendingCount = _reports
-        .where((r) => r['status'] == 'pending' || r['status'] == 'Pending')
+        .where((r) => r['status']?.toString().toLowerCase() == 'pending')
         .length;
 
     return Padding(
@@ -327,6 +472,94 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                   maxLines: 2,
                 ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'Content Actions',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (targetType != 'user') ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.delete, size: 16),
+                        label: const Text('Delete'),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _promptDeleteContent(targetType, targetId, reportId!);
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.visibility_off, size: 16),
+                        label: const Text('Hide'),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _hideContent(targetType, targetId, reportId!);
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.search, size: 16),
+                        label: const Text('Context'),
+                        onPressed: () {
+                          _viewContext(context, targetType, targetId);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'User Actions',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.grey[600]),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (reportedUserId != null) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.warning, size: 16),
+                        label: const Text('Warn'),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _promptWarnUser(reportedUserId.toString(), reportId!);
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.pause, size: 16),
+                        label: const Text('Suspend (24h)'),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _promptSuspendUser(reportedUserId.toString(), reportId!);
+                        },
+                      ),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.block, size: 16),
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                        label: const Text('Ban User'),
+                        onPressed: () async {
+                          Navigator.pop(dialogContext);
+                          await _banUser(reportedUserId.toString(), reason, reportId!);
+                        },
+                      ),
+                    ],
+                    if (reporterId != null) ...[
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.flag, size: 16),
+                        label: const Text('Flag Reporter'),
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _flagReporter(reporterId.toString(), 'False report spam');
+                        },
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -350,19 +583,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             },
             child: const Text('Mark Resolved'),
           ),
-          if (reportedUserId != null)
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                Navigator.pop(dialogContext);
-                await _banUser(
-                  reportedUserId.toString(),
-                  reason,
-                  reportId!,
-                );
-              },
-              child: const Text('Ban User'),
-            ),
         ],
       ),
     );

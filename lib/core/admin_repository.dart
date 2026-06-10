@@ -81,6 +81,24 @@ class AdminRepository {
     await _service.resolveReport(reportId, action, notes);
   }
 
+  Future<void> warnUser(String userId, String reason) async =>
+      _service.warnUser(userId, reason);
+
+  Future<void> suspendUser(String userId, String reason, int durationHours) async =>
+      _service.suspendUser(userId, reason, durationHours);
+
+  Future<void> deleteContent(String targetType, String targetId, String reason) async =>
+      _service.deleteContent(targetType, targetId, reason);
+
+  Future<void> hideContent(String targetType, String targetId, bool hide) async =>
+      _service.hideContent(targetType, targetId, hide);
+
+  Future<void> flagReporter(String reporterId, String reason, int durationHours) async =>
+      _service.flagReporter(reporterId, reason, durationHours);
+
+  Future<Map<String, dynamic>?> getContentContext(String targetType, String targetId) async =>
+      _service.getContentContext(targetType, targetId);
+
   Future<List<Map<String, dynamic>>> getDeletionSubmissions() async {
     return _service.getDeletionSubmissions();
   }

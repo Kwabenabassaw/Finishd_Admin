@@ -98,12 +98,23 @@ class SupabaseService {
   }
 
   Future<List<Map<String, dynamic>>> getReports() async {
-    final response = await _client.functions.invoke('admin-view-reports');
-    if (response.status >= 400) {
-      throw Exception(response.data['error'] ?? 'Failed to fetch reports from Edge Function');
+    try {
+      final response = await _client.functions.invoke('admin-view-reports');
+      if (response.status >= 400) {
+        final errorMsg = (response.data is Map)
+            ? (response.data['error'] ?? 'Failed to fetch reports')
+            : 'Failed to fetch reports (status ${response.status})';
+        throw Exception(errorMsg);
+      }
+      final data = response.data;
+      if (data is! Map) throw Exception('Unexpected response format from admin-view-reports');
+      final List<dynamic> reports = data['reports'] ?? [];
+      return List<Map<String, dynamic>>.from(reports);
+    } on FunctionException catch (e) {
+      throw Exception('Failed to load reports: ${e.reasonPhrase ?? e.details}');
+    } catch (e) {
+      rethrow;
     }
-    final List<dynamic> reports = response.data['reports'] ?? [];
-    return List<Map<String, dynamic>>.from(reports);
   }
 
   Future<void> updateReportStatus(String reportId, String status) async {
@@ -124,11 +135,54 @@ class SupabaseService {
     final response = await _client.functions.invoke('admin-view-reports', body: {
       'reportId': reportId,
       'action': mappedAction,
-      'notes': notes,
+      'notes': notes.isNotEmpty ? notes : null,
     });
     if (response.status >= 400) {
-      throw Exception(response.data['error'] ?? 'Failed to resolve report');
+      final errorMsg = (response.data is Map)
+          ? (response.data['error'] ?? 'Failed to resolve report')
+          : 'Failed to resolve report (status ${response.status})';
+      throw Exception(errorMsg);
     }
+  }
+
+  Future<void> warnUser(String userId, String reason) async =>
+      _client.rpc('warn_user', params: {'p_user_id': userId, 'p_reason': reason});
+
+  Future<void> suspendUser(String userId, String reason, int durationHours) async =>
+      _client.rpc('suspend_user', params: {
+        'p_user_id': userId,
+        'p_reason': reason,
+        'p_duration_hours': durationHours,
+      });
+
+  Future<void> deleteContent(String targetType, String targetId, String reason) async =>
+      _client.rpc('admin_delete_content', params: {
+        'p_target_type': targetType,
+        'p_target_id': targetId,
+        'p_reason': reason,
+      });
+
+  Future<void> hideContent(String targetType, String targetId, bool hide) async =>
+      _client.rpc('admin_hide_content', params: {
+        'p_target_type': targetType,
+        'p_target_id': targetId,
+        'p_hide': hide,
+      });
+
+  Future<void> flagReporter(String reporterId, String reason, int durationHours) async =>
+      _client.rpc('flag_reporter', params: {
+        'p_reporter_id': reporterId,
+        'p_reason': reason,
+        'p_duration_hours': durationHours,
+      });
+
+  Future<Map<String, dynamic>?> getContentContext(String targetType, String targetId) async {
+    final result = await _client.rpc('admin_get_content_context', params: {
+      'p_target_type': targetType,
+      'p_target_id': targetId,
+    });
+    if (result == null) return null;
+    return result as Map<String, dynamic>?;
   }
 
   Future<List<Map<String, dynamic>>> getDeletionSubmissions() async {
