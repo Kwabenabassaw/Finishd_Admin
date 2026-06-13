@@ -31,69 +31,27 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     try {
       final repository = context.read<AdminRepository>();
 
-      // Fetch data concurrently
-      final userStatsFuture = repository.getDailyUserStats(_days);
-      final videoStatsFuture = repository.getDailyVideoStats(_days);
+      final results = await Future.wait([
+        repository.getDailyActiveUsers(_days),
+        repository.getDailyVideoCompletion(_days),
+        repository.getDailyScrollDepth(_days),
+        repository.getDailyCommunityEngagement(_days),
+      ]);
 
-      final results = await Future.wait([userStatsFuture, videoStatsFuture]);
-      final userStats = results[0];
-      final videoStats = results[1];
+      final activeUsers = results[0];
+      final videoCompletion = results[1];
+      final scrollDepth = results[2];
+      final communityEngagement = results[3];
 
-      // userStats contains per-user rows: { user_id, date, videos_watched, ... }
-      // Group by date and count unique users to get 'active_users'
-      final Map<String, Set<String>> activeUsersByDate = {};
-      for (final row in userStats) {
-        final date = row['date'] as String;
-        final userId = row['user_id'] as String;
-        activeUsersByDate.putIfAbsent(date, () => {}).add(userId);
-      }
+      _userRetentionData = activeUsers.map<int>((r) => (r['active_users'] as num? ?? 0).toInt()).toList();
+      _videoCompletionData = videoCompletion.map<int>((r) => (r['avg_completion'] as num? ?? 0).toInt()).toList();
+      _scrollDepthData = scrollDepth.map<int>((r) => (r['avg_scroll_depth'] as num? ?? 0).toInt()).toList();
+      _communityEngagementData = communityEngagement.map<int>((r) => (r['engagement_count'] as num? ?? 0).toInt()).toList();
 
-      // videoStats contains per-video rows: { video_id, date, total_views, sum_completion_pct }
-      // Group by date and compute average completion percentage
-      final Map<String, double> completionSumByDate = {};
-      final Map<String, int> completionCountByDate = {};
-      for (final row in videoStats) {
-        final date = row['date'] as String;
-        final sumCompletion = (row['sum_completion_pct'] as num? ?? 0).toDouble();
-        final views = (row['total_views'] as num? ?? 0).toInt();
-        
-        if (views > 0) {
-          completionSumByDate[date] = (completionSumByDate[date] ?? 0) + sumCompletion;
-          completionCountByDate[date] = (completionCountByDate[date] ?? 0) + views;
-        }
-      }
-
-      // Generate the last `_days` dates to ensure contiguous data
-      final now = DateTime.now();
-      _userRetentionData = [];
-      _videoCompletionData = [];
-      
-      for (int i = _days - 1; i >= 0; i--) {
-        final d = now.subtract(Duration(days: i));
-        // Format as YYYY-MM-DD
-        final dateStr = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-        
-        // Active Users
-        _userRetentionData.add(activeUsersByDate[dateStr]?.length ?? 0);
-        
-        // Avg Completion
-        final sum = completionSumByDate[dateStr] ?? 0;
-        final count = completionCountByDate[dateStr] ?? 0;
-        _videoCompletionData.add(count > 0 ? (sum / count).toInt() : 0);
-      }
-
-      // Mocking others as they likely require computed columns not yet in simple daily stats
-      _scrollDepthData = List.generate(_days, (i) => 500 + (i * 10) % 200);
-      _communityEngagementData = List.generate(
-        _days,
-        (i) => 100 + (i * 5) % 50,
-      );
-
-      // If fetched data is empty (e.g. no stats yet), fill with zeros
-      if (_userRetentionData.isEmpty)
-        _userRetentionData = List.filled(_days, 0);
-      if (_videoCompletionData.isEmpty)
-        _videoCompletionData = List.filled(_days, 0);
+      if (_userRetentionData.isEmpty) _userRetentionData = List.filled(_days, 0);
+      if (_videoCompletionData.isEmpty) _videoCompletionData = List.filled(_days, 0);
+      if (_scrollDepthData.isEmpty) _scrollDepthData = List.filled(_days, 0);
+      if (_communityEngagementData.isEmpty) _communityEngagementData = List.filled(_days, 0);
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -101,7 +59,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        // Fallback to zeros on error
         _userRetentionData = List.filled(_days, 0);
         _videoCompletionData = List.filled(_days, 0);
         _scrollDepthData = List.filled(_days, 0);
@@ -147,7 +104,43 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ],
           ),
           const SizedBox(height: 24),
-
+          if (!_isLoading &&
+              _userRetentionData.every((val) => val == 0) &&
+              _videoCompletionData.every((val) => val == 0) &&
+              _scrollDepthData.every((val) => val == 0) &&
+              _communityEngagementData.every((val) => val == 0))
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.1),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Colors.amber),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Analytics Setup Required',
+                        style: TextStyle(
+                          color: Colors.amber.shade200,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'No interaction metrics were detected in the database. To populate these platform charts, ensure that the mobile application logs events like "scroll_depth" and community activities to Supabase.',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
           else

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:finishd_admin/features/auth/auth_service.dart';
+import 'package:finishd_admin/core/admin_badge_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,6 +12,10 @@ class Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final badgeProvider = context.watch<AdminBadgeProvider>();
+    final pendingApps = badgeProvider.pendingApplications;
+    final pendingVideos = badgeProvider.pendingVideos;
+    final pendingReports = badgeProvider.pendingReports;
 
     return Container(
       width: 260,
@@ -30,10 +35,10 @@ class Sidebar extends StatelessWidget {
                     color: theme.colorScheme.primary,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    Icons.shield_rounded,
-                    color: theme.colorScheme.onPrimary,
-                    size: 20,
+                  child: Image.asset(
+                    'assets/app_icon.png',
+                    width: 20,
+                    height: 20,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -84,6 +89,7 @@ class Sidebar extends StatelessWidget {
                   label: 'Creators',
                   isSelected: selectedIndex == 2,
                   onTap: () => context.go('/creators'),
+                  badgeCount: pendingApps,
                 ),
                 _NavItem(
                   icon: Icons.groups_outlined,
@@ -101,6 +107,7 @@ class Sidebar extends StatelessWidget {
                   label: 'Content',
                   isSelected: selectedIndex == 3,
                   onTap: () => context.go('/videos'),
+                  badgeCount: pendingVideos,
                 ),
                 _NavItem(
                   icon: Icons.gavel_outlined,
@@ -108,6 +115,7 @@ class Sidebar extends StatelessWidget {
                   label: 'Moderation',
                   isSelected: selectedIndex == 6,
                   onTap: () => context.go('/reports'),
+                  badgeCount: pendingReports,
                 ),
                 _NavItem(
                   icon: Icons.history_outlined,
@@ -194,7 +202,7 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+          color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -210,6 +218,7 @@ class _NavItem extends StatefulWidget {
   final bool isSelected;
   final VoidCallback onTap;
   final bool isDestructive;
+  final int badgeCount;
 
   const _NavItem({
     required this.icon,
@@ -218,6 +227,7 @@ class _NavItem extends StatefulWidget {
     required this.isSelected,
     required this.onTap,
     this.isDestructive = false,
+    this.badgeCount = 0,
   });
 
   @override
@@ -271,14 +281,38 @@ class _NavItemState extends State<_NavItem> {
                   size: 20,
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  widget.label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: fgColor,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    fontSize: 14,
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: fgColor,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
+                if (widget.badgeCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent.shade400,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 20,
+                      minHeight: 20,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${widget.badgeCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

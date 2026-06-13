@@ -19,6 +19,22 @@ class AdminRepository {
     return _service.getDailyVideoStats(days);
   }
 
+  Future<List<Map<String, dynamic>>> getDailyActiveUsers(int days) async {
+    return _service.getDailyActiveUsers(days);
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyVideoCompletion(int days) async {
+    return _service.getDailyVideoCompletion(days);
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyScrollDepth(int days) async {
+    return _service.getDailyScrollDepth(days);
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyCommunityEngagement(int days) async {
+    return _service.getDailyCommunityEngagement(days);
+  }
+
   // ── Users ─────────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getUsers({
@@ -67,6 +83,10 @@ class AdminRepository {
 
   Future<List<Map<String, dynamic>>> getPendingVideos() async {
     return _service.getPendingReviewVideos();
+  }
+
+  Future<List<Map<String, dynamic>>> getAllVideos() async {
+    return _service.getAllVideos();
   }
 
   Future<List<Map<String, dynamic>>> getReports() async {
@@ -130,6 +150,10 @@ class AdminRepository {
         .eq('id', videoId);
   }
 
+  Future<void> deleteVideo(String videoId) async {
+    await _service.deleteVideo(videoId);
+  }
+
   // ── Communities ───────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getCommunities() async {
@@ -152,6 +176,10 @@ class AdminRepository {
   }
 
   // ── Settings & System ─────────────────────────────────────────────────────
+
+  Future<String> getSignedVideoUrl(String path) async {
+    return _service.getSignedVideoUrl(path);
+  }
 
   Future<Map<String, dynamic>> getSettings() async {
     return _service.getAdminSettings();

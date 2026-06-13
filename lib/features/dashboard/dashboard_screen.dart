@@ -96,6 +96,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: Colors.blue,
                   ),
                   StatCard(
+                    title: 'Monthly Active Users',
+                    value: (stats['monthly_active_users'] ?? 0).toString(),
+                    trend: '+0%',
+                    icon: Icons.assignment_ind_rounded,
+                    color: Colors.teal,
+                  ),
+                  StatCard(
                     title: 'New Users Today',
                     value: (stats['new_users_today'] ?? 0).toString(),
                     trend: '+0%',
@@ -103,11 +110,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: Colors.green,
                   ),
                   StatCard(
-                    title: 'Videos Uploaded',
+                    title: 'Approved Creators',
+                    value: (stats['total_creators'] ?? 0).toString(),
+                    trend: '+0%',
+                    icon: Icons.verified_user_rounded,
+                    color: Colors.indigo,
+                  ),
+                  StatCard(
+                    title: 'Videos Uploaded Today',
                     value: (stats['videos_uploaded_today'] ?? 0).toString(),
                     trend: '+0%',
-                    isPositive: false,
-                    icon: Icons.video_library,
+                    isPositive: true,
+                    icon: Icons.video_call_rounded,
                     color: Colors.purple,
                   ),
                   StatCard(

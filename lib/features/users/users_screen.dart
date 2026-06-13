@@ -522,14 +522,14 @@ class _UserDetailSheet extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Container(
-          width: 400,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            boxShadow: const [BoxShadow(blurRadius: 20, color: Colors.black54)],
-          ),
-          child: Column(
+        Material(
+          color: theme.colorScheme.surface,
+          elevation: 20,
+          shadowColor: Colors.black54,
+          child: SizedBox(
+            width: 400,
+            height: double.infinity,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AppBar(
@@ -599,6 +599,7 @@ class _UserDetailSheet extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ],
     );

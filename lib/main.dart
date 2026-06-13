@@ -28,6 +28,7 @@ import 'package:finishd_admin/features/announcements/announcements_screen.dart';
 import 'package:finishd_admin/features/user_reports/user_reports_screen.dart';
 import 'package:finishd_admin/core/supabase_service.dart';
 import 'package:finishd_admin/core/admin_repository.dart';
+import 'package:finishd_admin/core/admin_badge_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,7 @@ void main() async {
         ProxyProvider<SupabaseService, AdminRepository>(
           update: (_, service, __) => AdminRepository(service),
         ),
+        ChangeNotifierProvider(create: (_) => AdminBadgeProvider()),
       ],
       child: const FinishdAdminApp(),
     ),

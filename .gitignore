@@ -11,7 +11,9 @@
 .svn/
 .swiftpm/
 migrate_working_dir/
-
+fire
+android/
+firebase_console_copy.md
 # IntelliJ related
 *.iml
 *.ipr

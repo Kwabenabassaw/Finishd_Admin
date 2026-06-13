@@ -66,6 +66,25 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
     }
   }
 
+  void _showEditDialog(BuildContext context, Map<String, dynamic> c) {
+    showDialog(
+      context: context,
+      builder: (context) => CommunityFormDialog(
+        initialData: c,
+        onSubmit: (data) async {
+          try {
+            await context.read<AdminRepository>().updateCommunity(c['id'].toString(), data);
+            _fetchCommunities();
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -129,7 +148,7 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                             label: Text('Toxicity Score'),
                           ), // Placeholder/New Column
                           DataColumn(label: Text('Status')),
-                          DataColumn(label: Text('Actions')),
+                          DataColumn2(label: Text('Actions'), size: ColumnSize.S),
                         ],
                         rows: _communities.map((c) {
                           final toxicity = (c['toxicity_score'] ?? 0) as num;
@@ -151,8 +170,12 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                                 Text((c['member_count'] ?? '-').toString()),
                               ),
                               DataCell(
-                                Text('-'),
-                              ), // Posts per day not yet tracked
+                                Text(
+                                  c['posts_per_day'] != null
+                                      ? (c['posts_per_day'] as num).toStringAsFixed(1)
+                                      : '0.0',
+                                ),
+                              ),
                               DataCell(
                                 Row(
                                   children: [
@@ -193,54 +216,66 @@ class _CommunitiesScreenState extends State<CommunitiesScreen> {
                                 ),
                               ),
                               DataCell(
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Switch(
-                                      value: isActive,
-                                      onChanged: (val) {
-                                        _updateStatus(
-                                          c['id'].toString(), // ensure string format
-                                          val ? 'active' : 'suspended',
-                                        );
-                                      },
+                                    Transform.scale(
+                                      scale: 0.8,
+                                      child: Switch(
+                                        value: isActive,
+                                        onChanged: (val) {
+                                          _updateStatus(
+                                            c['id'].toString(),
+                                            val ? 'active' : 'suspended',
+                                          );
+                                        },
+                                      ),
                                     ),
-                                    IconButton(
-                                      tooltip: 'Edit',
-                                      icon: const Icon(Icons.edit, size: 20),
-                                      onPressed: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => CommunityFormDialog(
-                                            initialData: c,
-                                            onSubmit: (data) async {
-                                              try {
-                                                await context.read<AdminRepository>().updateCommunity(c['id'].toString(), data);
-                                                _fetchCommunities();
-                                              } catch (e) {
-                                                if (context.mounted) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                                                }
-                                              }
-                                            },
+                                    const SizedBox(width: 8),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(Icons.more_vert_rounded, size: 20),
+                                      splashRadius: 20,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      itemBuilder: (context) => [
+                                        const PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit_rounded, size: 16),
+                                              SizedBox(width: 12),
+                                              Text('Edit Details'),
+                                            ],
                                           ),
-                                        );
-                                      },
-                                    ),
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.people, size: 18),
-                                      label: const Text('Members'),
-                                      onPressed: () {
-                                        context.go('/communities/${c['id']}/members');
-                                      },
-                                    ),
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.list, size: 18),
-                                      label: const Text('Posts'),
-                                      onPressed: () {
-                                        context.go('/communities/${c['id']}/posts');
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'members',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.people_alt_rounded, size: 16),
+                                              SizedBox(width: 12),
+                                              Text('Manage Members'),
+                                            ],
+                                          ),
+                                        ),
+                                        const PopupMenuItem(
+                                          value: 'posts',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.movie_filter_rounded, size: 16),
+                                              SizedBox(width: 12),
+                                              Text('View Posts'),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                      onSelected: (value) {
+                                        if (value == 'edit') {
+                                          _showEditDialog(context, c);
+                                        } else if (value == 'members') {
+                                          context.go('/communities/${c['id']}/members');
+                                        } else if (value == 'posts') {
+                                          context.go('/communities/${c['id']}/posts');
+                                        }
                                       },
                                     ),
                                   ],

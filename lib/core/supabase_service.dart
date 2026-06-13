@@ -62,13 +62,8 @@ class SupabaseService {
   }
 
   Future<List<Map<String, dynamic>>> getApprovedCreators() async {
-    // We can query profiles directly since we have an index on role/status
-    return await _client
-        .from('profiles')
-        .select('*')
-        .eq('role', 'creator')
-        .eq('creator_status', 'approved')
-        .order('created_at', ascending: false);
+    final response = await _client.rpc('get_approved_creators');
+    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<List<Map<String, dynamic>>> getPendingReviewVideos() async {
@@ -81,6 +76,25 @@ class SupabaseService {
         .order('created_at', ascending: true);
   }
 
+  Future<List<Map<String, dynamic>>> getAllVideos() async {
+    return await _client
+        .from('creator_videos')
+        .select(
+          '*, profiles!creator_videos_creator_id_fkey(username, avatar_url)',
+        )
+        .order('created_at', ascending: false);
+  }
+
+  Future<void> deleteVideo(String videoId) async {
+    await _client
+        .from('creator_videos')
+        .update({
+          'status': 'removed',
+          'deleted_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', videoId);
+  }
+
   Future<List<Map<String, dynamic>>> getFlaggedVideos() async {
     return await _client
         .from('creator_videos')
@@ -90,11 +104,8 @@ class SupabaseService {
   }
 
   Future<List<Map<String, dynamic>>> getCommunities() async {
-    // Fetch all communities. Pagination might be needed later.
-    return await _client
-        .from('communities')
-        .select('*')
-        .order('member_count', ascending: false);
+    final response = await _client.rpc('get_communities');
+    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<List<Map<String, dynamic>>> getReports() async {
@@ -211,6 +222,12 @@ class SupabaseService {
     });
   }
 
+  Future<String> getSignedVideoUrl(String path) async {
+    return await _client.storage
+        .from('creator-videos')
+        .createSignedUrl(path, 60 * 60);
+  }
+
   Future<Map<String, dynamic>> getAdminSettings() async {
     final response = await _client.from('admin_settings').select();
     final Map<String, dynamic> settings = {};
@@ -264,6 +281,38 @@ class SupabaseService {
         .select()
         .gte('date', startDate.toIso8601String())
         .order('date', ascending: true);
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyActiveUsers(int days) async {
+    final response = await _client.rpc(
+      'get_daily_active_users',
+      params: {'p_days': days},
+    );
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyVideoCompletion(int days) async {
+    final response = await _client.rpc(
+      'get_daily_video_completion',
+      params: {'p_days': days},
+    );
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyScrollDepth(int days) async {
+    final response = await _client.rpc(
+      'get_daily_scroll_depth',
+      params: {'p_days': days},
+    );
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyCommunityEngagement(int days) async {
+    final response = await _client.rpc(
+      'get_daily_community_engagement',
+      params: {'p_days': days},
+    );
+    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<void> unbanUser(String userId) async {
