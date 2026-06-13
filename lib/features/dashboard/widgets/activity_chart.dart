@@ -16,63 +16,123 @@ class ActivityChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+    final spots = data.asMap().entries.map((e) {
+      return FlSpot(e.key.toDouble(), e.value.toDouble());
+    }).toList();
+
+    // Determine max value dynamically for scaling the grid
+    double maxY = 10;
+    if (data.isNotEmpty) {
+      final maxVal = data.reduce((a, b) => a > b ? a : b);
+      if (maxVal > 0) {
+        maxY = maxVal.toDouble() * 1.1; // Add 10% headroom
+      }
+    }
+
+    final double verticalInterval = (data.length / 6).clamp(1.0, double.infinity);
+    final double horizontalInterval = (maxY / 4).clamp(1.0, double.infinity);
+
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: const Color(0xFF1B2339), // Dark card background from Sample 2
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor, width: 1),
+        border: Border.all(color: const Color(0xFF2E3B52), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           )
         ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.only(right: 24, left: 16, top: 24, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title, 
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.5,
-            )
+          Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: Text(
+              title, 
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: -0.5,
+              )
+            ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           Expanded(
             child: LineChart(
               LineChartData(
-                gridData: const FlGridData(show: false),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: true,
+                  horizontalInterval: horizontalInterval,
+                  verticalInterval: verticalInterval,
+                  getDrawingHorizontalLine: (value) {
+                    return const FlLine(
+                      color: Color(0xFF2E3B52),
+                      strokeWidth: 1,
+                    );
+                  },
+                  getDrawingVerticalLine: (value) {
+                    return const FlLine(
+                      color: Color(0xFF2E3B52),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
                 titlesData: FlTitlesData(
-                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: horizontalInterval,
+                      getTitlesWidget: leftTitleWidgets,
+                      reservedSize: 36,
+                    ),
+                  ),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 30,
-                      interval: 1,
+                      interval: verticalInterval,
                       getTitlesWidget: bottomTitleWidgets,
                     ),
                   ),
                 ),
-                borderData: FlBorderData(show: false),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: const Color(0xFF2E3B52), width: 1),
+                ),
+                minX: 0,
+                maxX: (data.length - 1).toDouble().clamp(0.0, double.infinity),
+                minY: 0,
+                maxY: maxY,
                 lineBarsData: [
                   LineChartBarData(
-                    spots: data.asMap().entries.map((e) {
-                      return FlSpot(e.key.toDouble(), e.value.toDouble());
-                    }).toList(),
+                    spots: spots,
                     isCurved: true,
-                    color: theme.colorScheme.primary,
-                    barWidth: 2,
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF50E4FF), // Cyan glow
+                        Color(0xFF2196F3), // Blue glow
+                      ],
+                    ),
+                    barWidth: 4,
                     isStrokeCapRound: true,
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF50E4FF).withOpacity(0.3),
+                          const Color(0xFF2196F3).withOpacity(0.05),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
                     ),
                   ),
                 ],
@@ -84,23 +144,38 @@ class ActivityChart extends StatelessWidget {
     );
   }
 
+  Widget leftTitleWidgets(double value, TitleMeta meta) {
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: 10,
+      color: Color(0xFF67727E),
+    );
+    String text;
+    if (value >= 1000) {
+      text = '${(value / 1000).toStringAsFixed(0)}k';
+    } else {
+      text = value.toInt().toString();
+    }
+    return SideTitleWidget(
+      meta: meta,
+      space: 8,
+      child: Text(text, style: style, textAlign: TextAlign.right),
+    );
+  }
+
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     const style = TextStyle(
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.bold,
       fontSize: 10,
-      color: Colors.grey,
+      color: Color(0xFF67727E),
     );
     final index = value.toInt();
     if (index >= 0 && index < labels.length) {
-      // Sparsify labels to avoid overlapping on UI: show ~5 labels across the chart width
-      final labelInterval = (labels.length / 5).ceil();
-      if (index % labelInterval == 0 || index == labels.length - 1) {
-        return SideTitleWidget(
-          meta: meta,
-          space: 10,
-          child: Text(labels[index], style: style),
-        );
-      }
+      return SideTitleWidget(
+        meta: meta,
+        space: 10,
+        child: Text(labels[index], style: style),
+      );
     }
 
     return const SizedBox.shrink();
