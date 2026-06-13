@@ -3,9 +3,15 @@ import 'package:flutter/material.dart';
 
 class ActivityChart extends StatelessWidget {
   final List<int> data;
+  final List<String> labels;
   final String title;
 
-  const ActivityChart({super.key, required this.data, required this.title});
+  const ActivityChart({
+    super.key,
+    required this.data,
+    required this.labels,
+    required this.title,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -81,23 +87,23 @@ class ActivityChart extends StatelessWidget {
   Widget bottomTitleWidgets(double value, TitleMeta meta) {
     const style = TextStyle(
       fontWeight: FontWeight.w500,
-      fontSize: 12,
+      fontSize: 10,
       color: Colors.grey,
     );
-    Widget text;
-    // Simple logic for days
-    int day = value.toInt() + 1;
-    if (day % 3 == 0) { // Sparsify labels for cleaner look
-       text = Text('D$day', style: style);
-    } else {
-       text = const Text('');
+    final index = value.toInt();
+    if (index >= 0 && index < labels.length) {
+      // Sparsify labels to avoid overlapping on UI: show ~5 labels across the chart width
+      final labelInterval = (labels.length / 5).ceil();
+      if (index % labelInterval == 0 || index == labels.length - 1) {
+        return SideTitleWidget(
+          meta: meta,
+          space: 10,
+          child: Text(labels[index], style: style),
+        );
+      }
     }
 
-    return SideTitleWidget(
-      meta: meta,
-      space: 10,
-      child: text,
-    );
+    return const SizedBox.shrink();
   }
 }
 

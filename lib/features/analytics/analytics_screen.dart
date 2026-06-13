@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:finishd_admin/core/admin_repository.dart';
 import 'package:finishd_admin/features/dashboard/widgets/activity_chart.dart';
+import 'package:intl/intl.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -16,6 +17,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   List<int> _videoCompletionData = [];
   List<int> _scrollDepthData = [];
   List<int> _communityEngagementData = [];
+  
+  List<String> _userRetentionLabels = [];
+  List<String> _videoCompletionLabels = [];
+  List<String> _scrollDepthLabels = [];
+  List<String> _communityEngagementLabels = [];
+  
   int _days = 30;
 
   @override
@@ -24,6 +31,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchAnalytics();
     });
+  }
+
+  String _formatDate(String dateStr) {
+    try {
+      final parsed = DateTime.parse(dateStr);
+      return DateFormat('MMM dd').format(parsed);
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   Future<void> _fetchAnalytics() async {
@@ -44,14 +60,33 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       final communityEngagement = results[3];
 
       _userRetentionData = activeUsers.map<int>((r) => (r['active_users'] as num? ?? 0).toInt()).toList();
-      _videoCompletionData = videoCompletion.map<int>((r) => (r['avg_completion'] as num? ?? 0).toInt()).toList();
-      _scrollDepthData = scrollDepth.map<int>((r) => (r['avg_scroll_depth'] as num? ?? 0).toInt()).toList();
-      _communityEngagementData = communityEngagement.map<int>((r) => (r['engagement_count'] as num? ?? 0).toInt()).toList();
+      _userRetentionLabels = activeUsers.map<String>((r) => _formatDate(r['date']?.toString() ?? '')).toList();
 
-      if (_userRetentionData.isEmpty) _userRetentionData = List.filled(_days, 0);
-      if (_videoCompletionData.isEmpty) _videoCompletionData = List.filled(_days, 0);
-      if (_scrollDepthData.isEmpty) _scrollDepthData = List.filled(_days, 0);
-      if (_communityEngagementData.isEmpty) _communityEngagementData = List.filled(_days, 0);
+      _videoCompletionData = videoCompletion.map<int>((r) => (r['avg_completion'] as num? ?? 0).toInt()).toList();
+      _videoCompletionLabels = videoCompletion.map<String>((r) => _formatDate(r['date']?.toString() ?? '')).toList();
+
+      _scrollDepthData = scrollDepth.map<int>((r) => (r['avg_scroll_depth'] as num? ?? 0).toInt()).toList();
+      _scrollDepthLabels = scrollDepth.map<String>((r) => _formatDate(r['date']?.toString() ?? '')).toList();
+
+      _communityEngagementData = communityEngagement.map<int>((r) => (r['engagement_count'] as num? ?? 0).toInt()).toList();
+      _communityEngagementLabels = communityEngagement.map<String>((r) => _formatDate(r['date']?.toString() ?? '')).toList();
+
+      if (_userRetentionData.isEmpty) {
+        _userRetentionData = List.filled(_days, 0);
+        _userRetentionLabels = List.generate(_days, (i) => '');
+      }
+      if (_videoCompletionData.isEmpty) {
+        _videoCompletionData = List.filled(_days, 0);
+        _videoCompletionLabels = List.generate(_days, (i) => '');
+      }
+      if (_scrollDepthData.isEmpty) {
+        _scrollDepthData = List.filled(_days, 0);
+        _scrollDepthLabels = List.generate(_days, (i) => '');
+      }
+      if (_communityEngagementData.isEmpty) {
+        _communityEngagementData = List.filled(_days, 0);
+        _communityEngagementLabels = List.generate(_days, (i) => '');
+      }
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -60,9 +95,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         _userRetentionData = List.filled(_days, 0);
+        _userRetentionLabels = List.generate(_days, (i) => '');
         _videoCompletionData = List.filled(_days, 0);
+        _videoCompletionLabels = List.generate(_days, (i) => '');
         _scrollDepthData = List.filled(_days, 0);
+        _scrollDepthLabels = List.generate(_days, (i) => '');
         _communityEngagementData = List.filled(_days, 0);
+        _communityEngagementLabels = List.generate(_days, (i) => '');
 
         ScaffoldMessenger.of(
           context,
@@ -158,18 +197,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ActivityChart(
                       title: 'Active Users (DAU)',
                       data: _userRetentionData,
+                      labels: _userRetentionLabels,
                     ),
                     ActivityChart(
                       title: 'Avg Video Completion (%)',
                       data: _videoCompletionData,
+                      labels: _videoCompletionLabels,
                     ),
                     ActivityChart(
                       title: 'Avg Scroll Depth (px)',
                       data: _scrollDepthData,
+                      labels: _scrollDepthLabels,
                     ),
                     ActivityChart(
                       title: 'Community Engagement',
                       data: _communityEngagementData,
+                      labels: _communityEngagementLabels,
                     ),
                   ],
                 );

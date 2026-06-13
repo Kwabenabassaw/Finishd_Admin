@@ -291,6 +291,14 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
+  Future<List<Map<String, dynamic>>> getDauMauStats(int days) async {
+    final response = await _client.rpc(
+      'get_dau_mau_stats',
+      params: {'p_days': days},
+    );
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   Future<List<Map<String, dynamic>>> getDailyVideoCompletion(int days) async {
     final response = await _client.rpc(
       'get_daily_video_completion',

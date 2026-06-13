@@ -23,6 +23,10 @@ class AdminRepository {
     return _service.getDailyActiveUsers(days);
   }
 
+  Future<List<Map<String, dynamic>>> getDauMauStats(int days) async {
+    return _service.getDauMauStats(days);
+  }
+
   Future<List<Map<String, dynamic>>> getDailyVideoCompletion(int days) async {
     return _service.getDailyVideoCompletion(days);
   }

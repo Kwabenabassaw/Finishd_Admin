@@ -162,6 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: ActivityChart(
                           title: 'User Growth (30 Days)',
                           data: MockData.generateChartData(30, max: 50),
+                          labels: List.generate(30, (i) => 'Day ${i + 1}'),
                         ),
                       ),
                       const SizedBox(width: 24),
@@ -169,6 +170,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: ActivityChart(
                           title: 'Feed Engagement',
                           data: MockData.generateChartData(30, max: 100),
+                          labels: List.generate(30, (i) => 'Day ${i + 1}'),
                         ),
                       ),
                     ],
@@ -182,6 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: ActivityChart(
                         title: 'User Growth (30 Days)',
                         data: MockData.generateChartData(30, max: 50),
+                        labels: List.generate(30, (i) => 'Day ${i + 1}'),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -190,6 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: ActivityChart(
                         title: 'Feed Engagement',
                         data: MockData.generateChartData(30, max: 100),
+                        labels: List.generate(30, (i) => 'Day ${i + 1}'),
                       ),
                     ),
                   ],
