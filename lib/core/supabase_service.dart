@@ -108,9 +108,9 @@ class SupabaseService {
     return List<Map<String, dynamic>>.from(response);
   }
 
-  Future<List<Map<String, dynamic>>> getReports() async {
+  Future<List<Map<String, dynamic>>> getReports({String status = 'pending'}) async {
     try {
-      final response = await _client.functions.invoke('admin-view-reports');
+      final response = await _client.functions.invoke('admin-view-reports', body: {'status': status});
       if (response.status >= 400) {
         final errorMsg = (response.data is Map)
             ? (response.data['error'] ?? 'Failed to fetch reports')
@@ -173,12 +173,19 @@ class SupabaseService {
         'p_reason': reason,
       });
 
-  Future<void> hideContent(String targetType, String targetId, bool hide) async =>
-      _client.rpc('admin_hide_content', params: {
-        'p_target_type': targetType,
-        'p_target_id': targetId,
-        'p_hide': hide,
-      });
+  Future<void> hideContent(String targetType, String targetId, bool hide) async {
+    await _client.rpc('admin_hide_content', params: {
+      'p_target_type': targetType,
+      'p_target_id': targetId,
+      'p_hide': hide,
+    });
+  }
+
+  Future<void> unsuspendUser(String userId) async {
+    await _client.rpc('unsuspend_user', params: {
+      'p_user_id': userId,
+    });
+  }
 
   Future<void> flagReporter(String reporterId, String reason, int durationHours) async =>
       _client.rpc('flag_reporter', params: {
@@ -247,18 +254,9 @@ class SupabaseService {
   }
 
   Future<void> banUser(String userId, String reason) async {
-    await _client
-        .from('profiles')
-        .update({'is_banned': true, 'ban_reason': reason})
-        .eq('id', userId);
-
-    // FIX: target_id is UUID in the new schema — must be passed as a valid column value
-    await _client.from('moderation_actions').insert({
-      'actor_id': _client.auth.currentUser?.id,
-      'target_type': 'user',
-      'target_id': userId,   // UUID string — Supabase client handles the cast
-      'action': 'ban',
-      'reason': reason,
+    await _client.rpc('ban_user', params: {
+      'p_user_id': userId,
+      'p_reason': reason,
     });
   }
 
@@ -324,17 +322,8 @@ class SupabaseService {
   }
 
   Future<void> unbanUser(String userId) async {
-    await _client
-        .from('profiles')
-        .update({'is_banned': false, 'ban_reason': null})
-        .eq('id', userId);
-
-    // FIX: persist the unban action in moderation_actions
-    await _client.from('moderation_actions').insert({
-      'actor_id': _client.auth.currentUser?.id,
-      'target_type': 'user',
-      'target_id': userId,   // UUID string — Supabase client handles the cast
-      'action': 'unban',
+    await _client.rpc('unban_user', params: {
+      'p_user_id': userId,
     });
   }
 

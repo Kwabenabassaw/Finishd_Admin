@@ -10,23 +10,39 @@ class ReportsScreen extends StatefulWidget {
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   List<Map<String, dynamic>> _reports = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchReports();
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (!_tabController.indexIsChanging) {
+      _fetchReports();
+    }
   }
 
   Future<void> _fetchReports() async {
     setState(() => _isLoading = true);
     try {
       final repository = context.read<AdminRepository>();
-      final reports = await repository.getReports();
+      final status = _tabController.index == 0 ? 'pending' : 'resolved';
+      final reports = await repository.getReports(status: status);
       if (mounted) {
         setState(() {
           _reports = reports;
@@ -106,6 +122,39 @@ class _ReportsScreenState extends State<ReportsScreen> {
       await repo.resolveReport(reportId, 'resolved', 'Content hidden');
       await _fetchReports();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Content hidden')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _unbanUser(String userId, String reportId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.unbanUser(userId);
+      await _resolveWithNotes(reportId, 'resolved', 'User unbanned');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User unbanned')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _unsuspendUser(String userId, String reportId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.unsuspendUser(userId);
+      await _resolveWithNotes(reportId, 'resolved', 'User unsuspended');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User unsuspended')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  Future<void> _unhideContent(String targetType, String targetId, String reportId) async {
+    final repo = context.read<AdminRepository>();
+    try {
+      await repo.hideContent(targetType, targetId, false);
+      await _resolveWithNotes(reportId, 'resolved', 'Content unhidden');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Content unhidden')));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -210,10 +259,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int pendingCount = _reports
-        .where((r) => r['status']?.toString().toLowerCase() == 'pending')
-        .length;
-
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -227,25 +272,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 12),
-              if (pendingCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '$pendingCount Pending',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+              const Spacer(),
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabs: const [
+                  Tab(text: 'Pending'),
+                  Tab(text: 'Resolved'),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -485,22 +520,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   runSpacing: 8,
                   children: [
                     if (targetType != 'user') ...[
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.delete, size: 16),
-                        label: const Text('Delete'),
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          _promptDeleteContent(targetType, targetId, reportId!);
-                        },
-                      ),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.visibility_off, size: 16),
-                        label: const Text('Hide'),
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          _hideContent(targetType, targetId, reportId!);
-                        },
-                      ),
+                      if (status == 'pending') ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.delete, size: 16),
+                          label: const Text('Delete'),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _promptDeleteContent(targetType, targetId, reportId!);
+                          },
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.visibility_off, size: 16),
+                          label: const Text('Hide'),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _hideContent(targetType, targetId, reportId!);
+                          },
+                        ),
+                      ],
+                      if (status == 'resolved' || status == 'dismissed') ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.visibility, size: 16),
+                          label: const Text('Unhide'),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _unhideContent(targetType, targetId, reportId!);
+                          },
+                        ),
+                      ],
                       OutlinedButton.icon(
                         icon: const Icon(Icons.search, size: 16),
                         label: const Text('Context'),
@@ -522,33 +569,54 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   runSpacing: 8,
                   children: [
                     if (reportedUserId != null) ...[
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.warning, size: 16),
-                        label: const Text('Warn'),
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          _promptWarnUser(reportedUserId.toString(), reportId!);
-                        },
-                      ),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.pause, size: 16),
-                        label: const Text('Suspend (24h)'),
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          _promptSuspendUser(reportedUserId.toString(), reportId!);
-                        },
-                      ),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.block, size: 16),
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                        label: const Text('Ban User'),
-                        onPressed: () async {
-                          Navigator.pop(dialogContext);
-                          await _banUser(reportedUserId.toString(), reason, reportId!);
-                        },
-                      ),
+                      if (status == 'pending') ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.warning, size: 16),
+                          label: const Text('Warn'),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _promptWarnUser(reportedUserId.toString(), reportId!);
+                          },
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.pause, size: 16),
+                          label: const Text('Suspend (24h)'),
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            _promptSuspendUser(reportedUserId.toString(), reportId!);
+                          },
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.block, size: 16),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                          label: const Text('Ban User'),
+                          onPressed: () async {
+                            Navigator.pop(dialogContext);
+                            await _banUser(reportedUserId.toString(), reason, reportId!);
+                          },
+                        ),
+                      ],
+                      if (status == 'resolved' || status == 'dismissed') ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.play_arrow, size: 16),
+                          label: const Text('Unsuspend User'),
+                          onPressed: () async {
+                            Navigator.pop(dialogContext);
+                            await _unsuspendUser(reportedUserId.toString(), reportId!);
+                          },
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.settings_backup_restore, size: 16),
+                          style: OutlinedButton.styleFrom(foregroundColor: Colors.green),
+                          label: const Text('Unban User'),
+                          onPressed: () async {
+                            Navigator.pop(dialogContext);
+                            await _unbanUser(reportedUserId.toString(), reportId!);
+                          },
+                        ),
+                      ]
                     ],
-                    if (reporterId != null) ...[
+                    if (reporterId != null && status == 'pending') ...[
                       OutlinedButton.icon(
                         icon: const Icon(Icons.flag, size: 16),
                         label: const Text('Flag Reporter'),
@@ -569,20 +637,31 @@ class _ReportsScreenState extends State<ReportsScreen> {
             onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Close'),
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              await _resolveWithNotes(reportId!, 'dismissed', notesController.text);
-            },
-            child: const Text('Dismiss'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              await _resolveWithNotes(reportId!, 'resolved', notesController.text);
-            },
-            child: const Text('Mark Resolved'),
-          ),
+          if (status == 'pending') ...[
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await _resolveWithNotes(reportId!, 'dismissed', notesController.text);
+              },
+              child: const Text('Dismiss'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await _resolveWithNotes(reportId!, 'resolved', notesController.text);
+              },
+              child: const Text('Mark Resolved'),
+            ),
+          ],
+          if (status != 'pending') ...[
+            FilledButton.tonal(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await _resolveWithNotes(reportId!, 'pending', 'Reopened report');
+              },
+              child: const Text('Reopen Report'),
+            ),
+          ],
         ],
       ),
     );

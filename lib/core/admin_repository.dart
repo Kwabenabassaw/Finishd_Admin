@@ -93,9 +93,8 @@ class AdminRepository {
     return _service.getAllVideos();
   }
 
-  Future<List<Map<String, dynamic>>> getReports() async {
-    return _service.getReports();
-  }
+  Future<List<Map<String, dynamic>>> getReports({String status = 'pending'}) async =>
+      _service.getReports(status: status);
 
   Future<void> resolveReport(
     String reportId,
@@ -116,6 +115,9 @@ class AdminRepository {
 
   Future<void> hideContent(String targetType, String targetId, bool hide) async =>
       _service.hideContent(targetType, targetId, hide);
+
+  Future<void> unsuspendUser(String userId) async =>
+      _service.unsuspendUser(userId);
 
   Future<void> flagReporter(String reporterId, String reason, int durationHours) async =>
       _service.flagReporter(reporterId, reason, durationHours);
