@@ -149,6 +149,13 @@ class Sidebar extends StatelessWidget {
                   onTap: () => context.go('/announcements'),
                 ),
                 _NavItem(
+                  icon: Icons.email_outlined,
+                  selectedIcon: Icons.email_rounded,
+                  label: 'Email Center',
+                  isSelected: selectedIndex == 14,
+                  onTap: () => context.go('/email-center'),
+                ),
+                _NavItem(
                   icon: Icons.link_outlined,
                   selectedIcon: Icons.link_rounded,
                   label: 'Deep Links',

@@ -26,9 +26,12 @@ import 'package:finishd_admin/features/deeplinks/deeplinks_screen.dart';
 import 'package:finishd_admin/features/settings/settings_screen.dart';
 import 'package:finishd_admin/features/announcements/announcements_screen.dart';
 import 'package:finishd_admin/features/user_reports/user_reports_screen.dart';
+import 'package:finishd_admin/features/email_center/email_center_screen.dart';
 import 'package:finishd_admin/core/supabase_service.dart';
 import 'package:finishd_admin/core/admin_repository.dart';
 import 'package:finishd_admin/core/admin_badge_provider.dart';
+import 'package:finishd_admin/features/email_center/email_service.dart';
+import 'package:finishd_admin/features/email_center/email_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +48,10 @@ void main() async {
         Provider(create: (_) => SupabaseService()),
         ProxyProvider<SupabaseService, AdminRepository>(
           update: (_, service, __) => AdminRepository(service),
+        ),
+        Provider(create: (_) => EmailService()),
+        ProxyProvider<EmailService, EmailRepository>(
+          update: (_, service, __) => EmailRepository(service),
         ),
         ChangeNotifierProvider(create: (_) => AdminBadgeProvider()),
       ],
@@ -119,6 +126,8 @@ class _FinishdAdminAppState extends State<FinishdAdminApp> {
               index = 12;
             } else if (uri.startsWith('/user-reports')) {
               index = 13;
+            } else if (uri.startsWith('/email-center')) {
+              index = 14;
             }
 
             return AdminShell(selectedIndex: index, child: child);
@@ -205,6 +214,10 @@ class _FinishdAdminAppState extends State<FinishdAdminApp> {
             GoRoute(
               path: '/settings',
               builder: (context, state) => const SettingsScreen(),
+            ),
+            GoRoute(
+              path: '/email-center',
+              builder: (context, state) => const EmailCenterScreen(),
             ),
           ],
         ),
