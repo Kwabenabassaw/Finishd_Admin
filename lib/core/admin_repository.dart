@@ -160,6 +160,10 @@ class AdminRepository {
     await _service.deleteVideo(videoId);
   }
 
+  Future<void> syncMuxStatus() async {
+    await _service.syncMuxStatus();
+  }
+
   // ── Communities ───────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getCommunities() async {

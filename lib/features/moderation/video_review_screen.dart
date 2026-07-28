@@ -48,6 +48,26 @@ class _VideoReviewScreenState extends State<VideoReviewScreen> {
     }
   }
 
+  Future<void> _syncMux() async {
+    setState(() => _isLoading = true);
+    try {
+      await context.read<AdminRepository>().syncMuxStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Mux Sync Complete')));
+      }
+      await _fetchVideos();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error syncing: $e')));
+      }
+    }
+  }
+
   Future<void> _approveVideo(String videoId) async {
     try {
       await context.read<AdminRepository>().approveVideo(videoId);
@@ -262,11 +282,21 @@ class _VideoReviewScreenState extends State<VideoReviewScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Content Management',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              Row(
+                children: [
+                  Text(
+                    'Content Management',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(width: 16),
+                  FilledButton.icon(
+                    onPressed: _isLoading ? null : _syncMux,
+                    icon: const Icon(Icons.sync, size: 18),
+                    label: const Text('Sync Mux Status'),
+                  ),
+                ],
               ),
               SizedBox(
                 width: 300,

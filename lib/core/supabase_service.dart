@@ -95,6 +95,10 @@ class SupabaseService {
         .eq('id', videoId);
   }
 
+  Future<void> syncMuxStatus() async {
+    await _client.functions.invoke('sync-mux-status');
+  }
+
   Future<List<Map<String, dynamic>>> getFlaggedVideos() async {
     return await _client
         .from('creator_videos')
