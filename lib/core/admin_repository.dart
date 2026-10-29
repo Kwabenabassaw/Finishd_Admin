@@ -65,6 +65,30 @@ class AdminRepository {
     await _service.deleteUser(userId);
   }
 
+  Future<Map<String, dynamic>> createUser({
+    required String email,
+    required String password,
+    required String username,
+    String role = 'user',
+    String? firstName,
+    String? lastName,
+    bool emailConfirm = true,
+  }) async {
+    return await _service.createUser(
+      email: email,
+      password: password,
+      username: username,
+      role: role,
+      firstName: firstName,
+      lastName: lastName,
+      emailConfirm: emailConfirm,
+    );
+  }
+
+  Future<void> updateUserRole(String userId, String role) async {
+    await _service.updateUserRole(userId, role);
+  }
+
   // ── Creators ──────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getApprovedCreators() async {

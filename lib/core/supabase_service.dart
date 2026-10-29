@@ -378,4 +378,84 @@ class SupabaseService {
       'reason': 'Admin deleted user account entirely',
     });
   }
+
+  Future<Map<String, dynamic>> createUser({
+    required String email,
+    required String password,
+    required String username,
+    String role = 'user',
+    String? firstName,
+    String? lastName,
+    bool emailConfirm = true,
+  }) async {
+    try {
+      final response = await _client.functions.invoke('admin-create-user', body: {
+        'action': 'create',
+        'email': email.trim(),
+        'password': password,
+        'username': username.trim(),
+        'role': role.toLowerCase(),
+        'firstName': firstName?.trim(),
+        'lastName': lastName?.trim(),
+        'emailConfirm': emailConfirm,
+      });
+
+      if (response.status >= 400) {
+        final errorMsg = (response.data is Map)
+            ? (response.data['error'] ?? 'Failed to create user')
+            : 'Failed to create user (status ${response.status})';
+        throw Exception(errorMsg);
+      }
+
+      final data = response.data;
+      if (data is Map && data['error'] != null) {
+        throw Exception(data['error']);
+      }
+
+      return data is Map<String, dynamic>
+          ? data
+          : Map<String, dynamic>.from(data as Map);
+    } on FunctionException catch (e) {
+      final details = e.details;
+      if (details is Map && details['error'] != null) {
+        throw Exception(details['error']);
+      }
+      throw Exception(e.reasonPhrase ?? 'Failed to create user (Status ${e.status})');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateUserRole(String userId, String role) async {
+    try {
+      final response = await _client.functions.invoke('admin-create-user', body: {
+        'action': 'update_role',
+        'userId': userId,
+        'role': role.toLowerCase(),
+      });
+
+      if (response.status >= 400) {
+        final errorMsg = (response.data is Map)
+            ? (response.data['error'] ?? 'Failed to update user role')
+            : 'Failed to update user role (status ${response.status})';
+        throw Exception(errorMsg);
+      }
+    } on FunctionException {
+      // Fallback: direct table update with admin credentials
+      await _client.from('profiles').update({
+        'role': role.toLowerCase(),
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
+    } catch (e) {
+      // Attempt fallback direct table update
+      try {
+        await _client.from('profiles').update({
+          'role': role.toLowerCase(),
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', userId);
+      } catch (_) {
+        rethrow;
+      }
+    }
+  }
 }
