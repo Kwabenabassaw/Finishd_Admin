@@ -42,7 +42,7 @@ class _ComposeEmailScreenState extends State<ComposeEmailScreen> {
     
     // Warn before sending to all
     if (_target == 'all') {
-      final confirm = await shadcn.showDialog<bool>(
+      final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => shadcn.AlertDialog(
           title: const Text('Confirm Mass Email'),
@@ -236,7 +236,7 @@ class _ComposeEmailScreenState extends State<ComposeEmailScreen> {
     List<Map<String, dynamic>> results = [];
     bool isSearching = false;
 
-    await shadcn.showDialog(
+    await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {

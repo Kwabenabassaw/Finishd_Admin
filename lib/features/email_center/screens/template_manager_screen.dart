@@ -40,7 +40,7 @@ class _TemplateManagerScreenState extends State<TemplateManagerScreen> {
     String subject = template?['subject'] ?? '';
     String htmlBody = template?['html_body'] ?? '';
 
-    shadcn.showDialog(
+    showDialog(
       context: context,
       builder: (ctx) => shadcn.AlertDialog(
         title: Text(isEdit ? 'Edit Template' : 'Create Template'),

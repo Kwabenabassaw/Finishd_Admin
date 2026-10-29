@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -235,6 +236,14 @@ class _FinishdAdminAppState extends State<FinishdAdminApp> {
       ),
       routerConfig: _router,
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en', 'US'),
+      ],
       builder: (context, child) => ResponsiveBreakpoints.builder(
         child: child!,
         breakpoints: [
