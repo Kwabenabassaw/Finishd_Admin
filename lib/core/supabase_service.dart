@@ -420,6 +420,9 @@ class SupabaseService {
       if (details is Map && details['error'] != null) {
         throw Exception(details['error']);
       }
+      if (details is String && details.isNotEmpty) {
+        throw Exception(details);
+      }
       throw Exception(e.reasonPhrase ?? 'Failed to create user (Status ${e.status})');
     } catch (e) {
       rethrow;

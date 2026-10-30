@@ -34,6 +34,8 @@ serve(async (req) => {
       );
     }
 
+    const token = authHeader.replace("Bearer ", "").trim();
+
     // Client with user's JWT
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
@@ -41,11 +43,11 @@ serve(async (req) => {
       },
     });
 
-    // Verify authenticated user
+    // Verify authenticated user by passing the JWT token explicitly
     const {
       data: { user: caller },
       error: authError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseClient.auth.getUser(token);
 
     if (authError || !caller) {
       return new Response(
@@ -54,8 +56,11 @@ serve(async (req) => {
       );
     }
 
-    // Verify admin role of caller
-    const { data: callerProfile, error: profileError } = await supabaseClient
+    // Admin client with service_role key to bypass RLS and access auth admin API
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify admin role of caller using service_role client
+    const { data: callerProfile, error: profileError } = await supabaseAdmin
       .from("profiles")
       .select("role")
       .eq("id", caller.id)
@@ -67,9 +72,6 @@ serve(async (req) => {
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    // Admin client with service_role key to bypass RLS and access auth admin API
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
     const action = body.action || "create";
@@ -205,7 +207,11 @@ serve(async (req) => {
       email: cleanEmail,
       password: password,
       email_confirm: emailConfirm,
+      app_metadata: {
+        role: cleanRole,
+      },
       user_metadata: {
+        role: cleanRole,
         username: cleanUsername,
         first_name: firstName?.trim() || null,
         last_name: lastName?.trim() || null,
@@ -240,16 +246,24 @@ serve(async (req) => {
       profileUpdate.creator_verified_at = new Date().toISOString();
     }
 
-    // Upsert into profiles to guarantee profile exists with correct role
-    const { error: profileUpsertError } = await supabaseAdmin
+    // Try updating profile first since on_auth_user_created trigger creates it
+    const { error: profileUpdateError } = await supabaseAdmin
       .from("profiles")
-      .upsert({
-        id: newUserId,
-        ...profileUpdate,
-      });
+      .update(profileUpdate)
+      .eq("id", newUserId);
 
-    if (profileUpsertError) {
-      console.error("Error updating profile role:", profileUpsertError);
+    if (profileUpdateError) {
+      console.warn("Direct profile update failed, falling back to upsert:", profileUpdateError);
+      const { error: profileUpsertError } = await supabaseAdmin
+        .from("profiles")
+        .upsert({
+          id: newUserId,
+          ...profileUpdate,
+        });
+
+      if (profileUpsertError) {
+        console.error("Error upserting profile:", profileUpsertError);
+      }
     }
 
     // Best effort moderation action audit log
