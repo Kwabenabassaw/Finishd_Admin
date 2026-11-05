@@ -235,10 +235,13 @@ class AdminRepository {
 
   Future<List<Map<String, dynamic>>> getCommunityPosts(String communityId) async {
     // FIX: communities.id is BIGINT
+    final communityIdInt = int.tryParse(communityId);
+    if (communityIdInt == null) throw ArgumentError('Invalid communityId: $communityId');
+
     final response = await _service.client
         .from('community_posts')
         .select()
-        .eq('community_id', int.parse(communityId))
+        .eq('community_id', communityIdInt)
         .order('created_at', ascending: false);
         
     if (response.isEmpty) return [];
